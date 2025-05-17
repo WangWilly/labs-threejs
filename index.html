@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Morphing Shapes</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000000;
+            color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        canvas {
+            display: block;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(30, 30, 50, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid #445;
+            z-index: 10; /* Ensure controls are above canvas */
+        }
+        #change-shape-btn {
+            background-color: #2a52be; /* Royal blue */
+            color: white;
+            border: 1px solid #6fa8dc;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-family: 'Courier New', Courier, monospace;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        #change-shape-btn:hover {
+            background-color: #3b78ce;
+        }
+        #change-shape-btn:active {
+            background-color: #1a3e8e;
+        }
+        #change-shape-btn:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        #color-options {
+            display: flex;
+            gap: 10px;
+        }
+        .color-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid #aaa;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .color-btn:hover {
+            transform: scale(1.1);
+        }
+        .color-btn.active {
+            border-color: #ffffff;
+            transform: scale(1.15);
+        }
+        #color-1 { background: linear-gradient(45deg, #ff8c00, #ffd700); }
+        #color-2 { background: linear-gradient(45deg, #8a2be2, #4169e1, #3cb371); }
+        #color-3 { background-color: #32cd32; } /* Lime Green */
+        #color-4 { background: linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet); }
+
+        #shape-info {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(10, 10, 30, 0.8);
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            border: 1px solid #334;
+            white-space: nowrap;
+            z-index: 10; /* Ensure info is above canvas */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="shape-info">Shape: Sphere (Click to morph)</div>
+    <div id="controls">
+        <button id="change-shape-btn">Change Shape</button>
+        <div id="color-options">
+            <button class="color-btn active" id="color-1" data-color="1"></button>
+            <button class="color-btn" id="color-2" data-color="2"></button>
+            <button class="color-btn" id="color-3" data-color="3"></button>
+            <button class="color-btn" id="color-4" data-color="4"></button>
+        </div>
+    </div>
+
+    <!-- Three.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for interaction -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        let scene, camera, renderer, controls; // Add controls here
+        let particles, particlesGeometry;
+        let stars, starsGeometry;
+        let targetPositions = {};
+        let currentShapeIndex = 0;
+        let isMorphing = false;
+        let morphProgress = 0;
+        const morphDuration = 2.0; // seconds
+        const particleCount = 15000;
+        const shapes = ['Sphere', 'Cube', 'Pyramid', 'Torus', 'Galaxy', 'Wave'];
+        const shapeInfoElement = document.getElementById('shape-info');
+        const changeShapeButton = document.getElementById('change-shape-btn');
+        const colorButtons = document.querySelectorAll('.color-btn');
+        let currentColorScheme = 1;
+        const clock = new THREE.Clock();
+
+        // --- Initialization ---
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 4;
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            // Orbit Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; // Enable smooth damping (inertia)
+            controls.dampingFactor = 0.05; // Adjust damping intensity
+            controls.screenSpacePanning = false; // Optional: disable panning
+            controls.minDistance = 1;
+            controls.maxDistance = 20;
+
+            // Particles Geometry
+            particlesGeometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const startPositions = new Float32Array(particleCount * 3); // For morphing
+            const randomFactors = new Float32Array(particleCount); // For galaxy/wave variation
+
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 5;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 5;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 5;
+                randomFactors[i] = Math.random();
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            particlesGeometry.setAttribute('startPosition', new THREE.BufferAttribute(startPositions, 3));
+            particlesGeometry.setAttribute('randomFactor', new THREE.BufferAttribute(randomFactors, 1));
+
+            // Particles Material
+            const particleMaterial = new THREE.PointsMaterial({
+                size: 0.02,
+                vertexColors: true,
+                sizeAttenuation: true,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            // Particles Object
+            particles = new THREE.Points(particlesGeometry, particleMaterial);
+             // IMPORTANT: Add particles directly to the scene, NOT as a child of another rotated object
+            scene.add(particles);
+
+            // Background Stars
+            starsGeometry = new THREE.BufferGeometry();
+            const starPositions = [];
+            const starColors = [];
+            const starCount = 5000;
+            const starColor = new THREE.Color(0.8, 0.8, 0.9);
+
+            for (let i = 0; i < starCount; i++) {
+                const x = THREE.MathUtils.randFloatSpread(200);
+                const y = THREE.MathUtils.randFloatSpread(200);
+                const z = THREE.MathUtils.randFloatSpread(200);
+                const d = Math.sqrt(x*x + y*y + z*z);
+                 if (d < 50) {
+                    const scale = 50 / d;
+                    starPositions.push(x*scale, y*scale, z*scale);
+                 } else {
+                    starPositions.push(x, y, z);
+                 }
+                starColors.push(starColor.r, starColor.g, starColor.b);
+            }
+            starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+            starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
+            const starsMaterial = new THREE.PointsMaterial({
+                size: 0.1,
+                vertexColors: true,
+                sizeAttenuation: true,
+                transparent: true,
+                opacity: 0.6
+             });
+            stars = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(stars);
+
+
+            // Pre-calculate all target positions
+            generateShapePositions();
+            // Set initial shape
+            setShape(currentShapeIndex, true); // true to skip animation
+            // Set initial colors
+            applyColorScheme(currentColorScheme);
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize, false);
+            changeShapeButton.addEventListener('click', triggerMorph);
+            // Also allow clicking on the shape info to trigger morph
+            shapeInfoElement.addEventListener('click', triggerMorph);
+            shapeInfoElement.style.cursor = 'pointer'; // Indicate clickable
+
+            colorButtons.forEach(button => {
+                button.addEventListener('click', (event) => {
+                    if (isMorphing) return; // Don't change color while morphing
+                    const scheme = parseInt(event.target.getAttribute('data-color'));
+                    if (scheme !== currentColorScheme) {
+                        currentColorScheme = scheme;
+                        applyColorScheme(scheme);
+                        updateColorButtons();
+                    }
+                });
+            });
+            updateColorButtons();
+
+            // Start animation loop
+            animate();
+        }
+
+        // --- Shape Generation ---
+        function generateShapePositions() {
+            targetPositions['Sphere'] = generateSpherePositions();
+            targetPositions['Cube'] = generateCubePositions();
+            targetPositions['Pyramid'] = generatePyramidPositions();
+            targetPositions['Torus'] = generateTorusPositions();
+            targetPositions['Galaxy'] = generateGalaxyPositions();
+            targetPositions['Wave'] = generateWavePositions();
+        }
+
+        function generateSpherePositions() {
+            const positions = new Float32Array(particleCount * 3);
+            const radius = 1.5;
+            const randomFactors = particlesGeometry.attributes.randomFactor.array;
+            for (let i = 0; i < particleCount; i++) {
+                const idx = i + 0.5;
+                const phi = Math.acos(1 - 2 * idx / particleCount);
+                const theta = Math.PI * (1 + Math.sqrt(5)) * idx;
+                const x = radius * Math.sin(phi) * Math.cos(theta);
+                const y = radius * Math.sin(phi) * Math.sin(theta);
+                const z = radius * Math.cos(phi);
+                const perturbation = (randomFactors[i] - 0.5) * 0.1;
+                positions[i * 3] = x + perturbation * x / radius;
+                positions[i * 3 + 1] = y + perturbation * y / radius;
+                positions[i * 3 + 2] = z + perturbation * z / radius;
+            }
+            return positions;
+        }
+
+        function generateCubePositions() {
+            const positions = new Float32Array(particleCount * 3);
+            const halfSize = 1.2;
+            for (let i = 0; i < particleCount; i++) {
+                const face = Math.floor(Math.random() * 6);
+                let x, y, z;
+                const r1 = (Math.random() - 0.5) * 2 * halfSize;
+                const r2 = (Math.random() - 0.5) * 2 * halfSize;
+                switch(face) {
+                    case 0: x = halfSize; y = r1; z = r2; break;
+                    case 1: x = -halfSize; y = r1; z = r2; break;
+                    case 2: x = r1; y = halfSize; z = r2; break;
+                    case 3: x = r1; y = -halfSize; z = r2; break;
+                    case 4: x = r1; y = r2; z = halfSize; break;
+                    case 5: x = r1; y = r2; z = -halfSize; break;
+                }
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+            }
+            return positions;
+        }
+
+        function generatePyramidPositions() {
+            const positions = new Float32Array(particleCount * 3);
+            const height = 1.8;
+            const baseSize = 1.5;
+            const apex = new THREE.Vector3(0, height / 2, 0);
+            const baseCorners = [
+                new THREE.Vector3(-baseSize, -height / 2, -baseSize),
+                new THREE.Vector3(baseSize, -height / 2, -baseSize),
+                new THREE.Vector3(baseSize, -height / 2, baseSize),
+                new THREE.Vector3(-baseSize, -height / 2, baseSize)
+            ];
+            for (let i = 0; i < particleCount; i++) {
+                const face = Math.floor(Math.random() * 5);
+                let p = new THREE.Vector3();
+                if (face < 4) {
+                    const v1 = apex;
+                    const v2 = baseCorners[face];
+                    const v3 = baseCorners[(face + 1) % 4];
+                    let u = Math.random();
+                    let v = Math.random();
+                    if (u + v > 1) { u = 1 - u; v = 1 - v; }
+                    let w = 1 - u - v;
+                    p.x = u * v1.x + v * v2.x + w * v3.x;
+                    p.y = u * v1.y + v * v2.y + w * v3.y;
+                    p.z = u * v1.z + v * v2.z + w * v3.z;
+                } else {
+                    p.x = THREE.MathUtils.randFloat(-baseSize, baseSize);
+                    p.y = -height / 2;
+                    p.z = THREE.MathUtils.randFloat(-baseSize, baseSize);
+                }
+                positions[i * 3] = p.x;
+                positions[i * 3 + 1] = p.y;
+                positions[i * 3 + 2] = p.z;
+            }
+            return positions;
+        }
+
+        function generateTorusPositions() {
+            const positions = new Float32Array(particleCount * 3);
+            const radius = 1.2;
+            const tube = 0.5;
+            const randomFactors = particlesGeometry.attributes.randomFactor.array;
+            for (let i = 0; i < particleCount; i++) {
+                const u = Math.random() * Math.PI * 2;
+                const v = Math.random() * Math.PI * 2;
+                const R_actual = radius + tube * Math.cos(v);
+                positions[i * 3] = R_actual * Math.cos(u);
+                positions[i * 3 + 1] = R_actual * Math.sin(u);
+                positions[i * 3 + 2] = tube * Math.sin(v);
+                const fuzz = (randomFactors[i] - 0.5) * 0.05;
+                positions[i * 3] += fuzz * Math.cos(u) * Math.cos(v);
+                positions[i * 3 + 1] += fuzz * Math.sin(u) * Math.cos(v);
+                positions[i * 3 + 2] += fuzz * Math.sin(v);
+            }
+            return positions;
+        }
+
+        function generateGalaxyPositions() {
+            const positions = new Float32Array(particleCount * 3);
+            const numArms = 3;
+            const armSeparation = (Math.PI * 2) / numArms;
+            const armLength = 5.0;
+            const armTightness = 0.5;
+            const bulgeRadius = 0.5;
+            const diskThickness = 0.2;
+            const randomFactors = particlesGeometry.attributes.randomFactor.array;
+            for (let i = 0; i < particleCount; i++) {
+                const rand = randomFactors[i];
+                const armIndex = Math.floor(rand * numArms);
+                const armAngleOffset = armIndex * armSeparation;
+                const dist = Math.pow(Math.random(), 1.5);
+                const angle = dist * armLength;
+                const radius = bulgeRadius * 0.5 + angle / armTightness;
+                const theta = angle + armAngleOffset;
+                let x = radius * Math.cos(theta); // Use let
+                let y = radius * Math.sin(theta); // Use let
+                const randomAngle = Math.random() * Math.PI * 2;
+                const randomRadius = Math.pow(Math.random(), 2) * radius * 0.2;
+                x += randomRadius * Math.cos(randomAngle);
+                y += randomRadius * Math.sin(randomAngle);
+                let z = (Math.random() - 0.5) * diskThickness * (1 - dist * 0.8) * Math.exp(-dist); // Use let (FIXED)
+                if (Math.random() < 0.15) {
+                    const bulgeDist = Math.random() * bulgeRadius;
+                    const bulgePhi = Math.acos(1 - 2 * Math.random());
+                    const bulgeTheta = Math.random() * Math.PI * 2;
+                    x = bulgeDist * Math.sin(bulgePhi) * Math.cos(bulgeTheta);
+                    y = bulgeDist * Math.sin(bulgePhi) * Math.sin(bulgeTheta);
+                    z = bulgeDist * Math.cos(bulgePhi) * 1.2 + (Math.random()-0.5) * 0.1; // Assign to let is OK
+                }
+                positions[i * 3] = x * 0.6;
+                positions[i * 3 + 1] = y * 0.6;
+                positions[i * 3 + 2] = z * 1.5;
+            }
+            return positions;
+        }
+
+        function generateWavePositions() {
+            const positions = new Float32Array(particleCount * 3);
+            const width = 4;
+            const depth = 4;
+            const amplitude = 0.3;
+            const frequency = 2.5;
+            const randomFactors = particlesGeometry.attributes.randomFactor.array;
+            for (let i = 0; i < particleCount; i++) {
+                const r = Math.sqrt(randomFactors[i]);
+                const angle = Math.random() * Math.PI * 2;
+                const x = r * Math.cos(angle) * width / 2;
+                const z = r * Math.sin(angle) * depth / 2;
+                const distFromCenter = Math.sqrt(x * x + z * z);
+                let y = amplitude * Math.sin(distFromCenter * frequency); // Use let (FIXED)
+                y += amplitude * 0.3 * Math.cos(x * frequency * 0.7 + z * frequency * 0.5); // += on let is OK
+                y += (Math.random() - 0.5) * 0.05; // += on let is OK
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+            }
+            return positions;
+        }
+
+
+        // --- Morphing ---
+        function triggerMorph() {
+            // Prevent triggering another morph while one is in progress OR if button disabled
+            if (isMorphing || changeShapeButton.disabled) return;
+
+            isMorphing = true;
+            morphProgress = 0;
+
+            // Store starting positions FROM the current 'position' attribute
+            // This ensures we start from the exact end state of the previous shape
+            const currentPositions = particlesGeometry.attributes.position.array;
+            const startPositionsAttribute = particlesGeometry.attributes.startPosition;
+            for(let i=0; i < currentPositions.length; i++) {
+                startPositionsAttribute.array[i] = currentPositions[i];
+            }
+            startPositionsAttribute.needsUpdate = true; // Crucial: tell Three.js the buffer changed
+
+            // Increment index for the NEXT shape
+            currentShapeIndex = (currentShapeIndex + 1) % shapes.length;
+
+            // Update UI immediately
+            shapeInfoElement.textContent = 'Morphing...';
+            changeShapeButton.disabled = true; // Disable button during morph
+        }
+
+        function updateMorph(deltaTime) {
+            if (!isMorphing) return;
+
+            // Ensure morphDuration is positive
+            if (morphDuration <= 0) {
+                console.error("morphDuration must be positive!");
+                isMorphing = false;
+                changeShapeButton.disabled = false;
+                shapeInfoElement.textContent = `Error: Invalid morph duration`;
+                return;
+            }
+
+            morphProgress += deltaTime;
+            // 1. Calculate the raw progress based on time elapsed
+            let rawProgressRatio = morphProgress / morphDuration;
+
+            // 2. Clamp the RAW progress ratio between 0 and 1
+            // This value will determine if the animation time is complete
+            const clampedRawProgressRatio = Math.max(0.0, Math.min(rawProgressRatio, 1.0));
+
+            // --- DEBUG ---
+            // console.log(`Raw: ${(morphProgress / morphDuration).toFixed(4)}, ClampedRaw: ${clampedRawProgressRatio.toFixed(4)}`);
+
+            // 3. Apply easing function ONLY to the clamped ratio for interpolation
+            // Use the clamped value as input to prevent easing output < 1 when input > 1
+            let easedProgressRatio = clampedRawProgressRatio < 0.5 ? 2 * clampedRawProgressRatio * clampedRawProgressRatio : 1 - Math.pow(-2 * clampedRawProgressRatio + 2, 2) / 2;
+            // Optional: Clamp eased value too, just to be safe (though shouldn't be needed now)
+            easedProgressRatio = Math.max(0.0, Math.min(easedProgressRatio, 1.0));
+
+            // --- DEBUG ---
+            // console.log(`Eased: ${easedProgressRatio.toFixed(4)}`);
+
+
+            const currentPosAttr = particlesGeometry.attributes.position;
+            const startPositions = particlesGeometry.attributes.startPosition.array;
+            const targetShapeName = shapes[currentShapeIndex];
+            const target = targetPositions[targetShapeName];
+
+            // --- Crucial Checks ---
+            if (!target) {
+                console.error(`Target positions for shape "${targetShapeName}" (index ${currentShapeIndex}) not found!`);
+                isMorphing = false; changeShapeButton.disabled = false; shapeInfoElement.textContent = `Error: Target shape data missing`; return;
+            }
+            if (target.length !== currentPosAttr.count * 3 || startPositions.length !== currentPosAttr.count * 3) {
+                 console.error(`Array length mismatch! Morphing to "${targetShapeName}".`);
+                 isMorphing = false; changeShapeButton.disabled = false; shapeInfoElement.textContent = `Error: Shape data size mismatch`; return;
+            }
+            // --- End Crucial Checks ---
+
+
+            // 4. Interpolate using the EASED progress ratio
+            for (let i = 0; i < particleCount; i++) {
+                const i3 = i * 3;
+                const startX = startPositions[i3], startY = startPositions[i3 + 1], startZ = startPositions[i3 + 2];
+                const targetX = target[i3], targetY = target[i3 + 1], targetZ = target[i3 + 2];
+
+                currentPosAttr.array[i3] = THREE.MathUtils.lerp(startX, targetX, easedProgressRatio);
+                currentPosAttr.array[i3 + 1] = THREE.MathUtils.lerp(startY, targetY, easedProgressRatio);
+                currentPosAttr.array[i3 + 2] = THREE.MathUtils.lerp(startZ, targetZ, easedProgressRatio);
+            }
+            currentPosAttr.needsUpdate = true;
+
+            // Optional color update...
+            // applyColorScheme(currentColorScheme);
+
+
+            // 5. Check for completion using the CLAMPED RAW progress ratio
+            // This reliably indicates if the morph duration has passed
+            // --- DEBUG ---
+            // console.log(`Checking completion: clampedRawProgressRatio=${clampedRawProgressRatio.toFixed(4)}`);
+
+            if (clampedRawProgressRatio >= 1.0) {
+                 console.log(">>> Morph completion block entered <<<"); // Keep this log for confirmation
+
+                isMorphing = false; // Reset flag FIRST
+                morphProgress = 0;  // Reset progress time
+
+                try {
+                    // Snap precisely to the final target position
+                    console.log(`Snapping to final shape: ${shapes[currentShapeIndex]}`);
+                    setShape(currentShapeIndex, false); // updateText = false
+                } catch (e) {
+                    console.error("Error during setShape in morph completion:", e);
+                }
+
+                // Update UI elements AFTER resetting isMorphing flag
+                shapeInfoElement.textContent = `Shape: ${shapes[currentShapeIndex]} (Click to morph)`;
+                changeShapeButton.disabled = false; // **** Re-enable button ****
+
+                // Apply final color scheme precisely
+                try {
+                     applyColorScheme(currentColorScheme);
+                 } catch(e) {
+                      console.error("Error during final applyColorScheme:", e);
+                 }
+
+                 console.log("<<< Morph completion block finished >>>"); // Keep this log for confirmation
+            }
+        }
+        // Minor change in setShape: Use count attribute for clarity
+        function setShape(index, updateText = false) { // Changed second param name
+            const targetShapeName = shapes[index];
+            const target = targetPositions[targetShapeName];
+            if (!target) {
+                console.error(`Target positions for shape "${targetShapeName}" (index ${index}) not found in setShape!`);
+                return;
+            }
+            const positions = particlesGeometry.attributes.position;
+             // Use positions.count which is reliable number of vertices
+            if (positions.count * 3 !== target.length) {
+                 console.error(`Position buffer count (${positions.count*3}) does not match target length (${target.length}) in setShape for "${targetShapeName}"!`);
+                 return;
+             }
+
+            for (let i = 0; i < target.length; i++) {
+                positions.array[i] = target[i];
+            }
+            positions.needsUpdate = true; // Tell Three.js the buffer changed
+
+             // Update info text only if requested AND not currently morphing
+            if (updateText && !isMorphing) {
+               shapeInfoElement.textContent = `Shape: ${targetShapeName} (Click to morph)`;
+            }
+            // Recompute bounding box after changing shape significantly
+             particlesGeometry.computeBoundingBox();
+        }
+
+        // --- Coloring ---
+        function applyColorScheme(scheme) {
+            const positions = particlesGeometry.attributes.position.array;
+            const colors = particlesGeometry.attributes.color.array;
+            const color = new THREE.Color();
+
+            // Ensure bounding box is computed and up-to-date
+            if (!particlesGeometry.boundingBox) {
+                 particlesGeometry.computeBoundingBox();
+            }
+            const bounds = particlesGeometry.boundingBox;
+             // Handle cases where bounding box might be invalid initially
+             if (!bounds || !bounds.min || !bounds.max || bounds.isEmpty()) {
+                console.warn("Invalid bounding box in applyColorScheme, using defaults.");
+                 // Provide default fallbacks if bounds are bad
+                 bounds = { min: new THREE.Vector3(-1,-1,-1), max: new THREE.Vector3(1,1,1) };
+                 bounds.getCenter = function(vec) { vec.set(0,0,0); return vec;}
+             }
+
+
+            const minY = bounds.min.y;
+            const maxY = bounds.max.y;
+            const rangeY = Math.max(0.001, maxY - minY); // Avoid division by zero
+
+            const minX = bounds.min.x;
+            const maxX = bounds.max.x;
+            const rangeX = Math.max(0.001, maxX - minX);
+
+            const minZ = bounds.min.z;
+            const maxZ = bounds.max.z;
+            const rangeZ = Math.max(0.001, maxZ - minZ);
+
+            const center = new THREE.Vector3();
+            bounds.getCenter(center);
+
+
+            for (let i = 0; i < particleCount; i++) {
+                const i3 = i * 3;
+                 // Bounds check for safety
+                 if (i3 + 2 >= positions.length || i3 + 2 >= colors.length) continue;
+
+                const x = positions[i3];
+                const y = positions[i3 + 1];
+                const z = positions[i3 + 2];
+
+                switch(scheme) {
+                    case 1: // Orange/Yellow gradient based on Y
+                        const ratioY1 = THREE.MathUtils.clamp((y - minY) / rangeY, 0, 1);
+                        color.setHSL(0.1 + ratioY1 * 0.05, 1.0, 0.5 + ratioY1 * 0.1);
+                        break;
+                    case 2: // Purple/Blue/Green gradient based on X
+                        const ratioX2 = THREE.MathUtils.clamp((x - minX) / rangeX, 0, 1);
+                        color.setHSL(0.75 - ratioX2 * 0.3 , 0.8, 0.5);
+                        break;
+                    case 3: // Green based on Z
+                         const ratioZ3 = THREE.MathUtils.clamp((z - minZ) / rangeZ, 0, 1);
+                         color.setHSL(0.35, 0.7 + ratioZ3 * 0.2 , 0.45 + ratioZ3 * 0.1);
+                        break;
+                    case 4: // Rainbow based on angle around Y
+                         const dx = x - center.x;
+                         const dz = z - center.z;
+                         const angle = Math.atan2(dz, dx);
+                         const hue = ((angle / (Math.PI * 2)) + 0.5 + 1.0) % 1.0; // Map -PI to PI -> 0 to 1, ensure positive
+                         const dy = y - center.y;
+                         const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                         const maxDim = Math.max(rangeX, rangeY, rangeZ);
+                         const maxDist = maxDim > 0 ? maxDim * 0.6 : 1.0; // Avoid division by zero if range is 0
+                         const saturation = 0.6 + (dist / maxDist) * 0.4;
+                         const lightness = 0.5 + (dy / rangeY) * 0.1;
+                         color.setHSL(hue, THREE.MathUtils.clamp(saturation, 0.6, 1.0), THREE.MathUtils.clamp(lightness, 0.4, 0.6));
+                        break;
+                    default:
+                        color.setHex(0xffffff);
+                }
+
+                colors[i3] = color.r;
+                colors[i3 + 1] = color.g;
+                colors[i3 + 2] = color.b;
+            }
+            particlesGeometry.attributes.color.needsUpdate = true;
+        }
+
+        function updateColorButtons() {
+            colorButtons.forEach(button => {
+                if (parseInt(button.getAttribute('data-color')) === currentColorScheme) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+        }
+
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const deltaTime = clock.getDelta();
+
+            // Update morphing state
+            updateMorph(deltaTime);
+
+            // Update OrbitControls (handles camera rotation/zoom/pan)
+            controls.update(); // Must be called if controls.enableDamping is true
+
+            // Optional: Slow rotation for background stars
+             if (stars) {
+                 stars.rotation.y += deltaTime * 0.005;
+             }
+
+            renderer.render(scene, camera);
+        }
+
+        // --- Resize Handling ---
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- Start ---
+        init();
+
+    </script>
+</body>
+</html>
