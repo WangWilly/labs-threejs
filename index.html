@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Particle Morphing Shapes</title>
+    <title>Interactive Morphing Resume - Yuli W.</title>
     <style>
         body {
             margin: 0;
@@ -34,51 +34,6 @@
             border: 1px solid #445;
             z-index: 10; /* Ensure controls are above canvas */
         }
-        #change-shape-btn {
-            background-color: #2a52be; /* Royal blue */
-            color: white;
-            border: 1px solid #6fa8dc;
-            padding: 10px 20px;
-            font-size: 16px;
-            font-family: 'Courier New', Courier, monospace;
-            cursor: pointer;
-            border-radius: 5px;
-            transition: background-color 0.3s;
-        }
-        #change-shape-btn:hover {
-            background-color: #3b78ce;
-        }
-        #change-shape-btn:active {
-            background-color: #1a3e8e;
-        }
-        #change-shape-btn:disabled {
-            background-color: #555;
-            cursor: not-allowed;
-        }
-        #color-options {
-            display: flex;
-            gap: 10px;
-        }
-        .color-btn {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            border: 2px solid #aaa;
-            cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
-        }
-        .color-btn:hover {
-            transform: scale(1.1);
-        }
-        .color-btn.active {
-            border-color: #ffffff;
-            transform: scale(1.15);
-        }
-        #color-1 { background: linear-gradient(45deg, #ff8c00, #ffd700); }
-        #color-2 { background: linear-gradient(45deg, #8a2be2, #4169e1, #3cb371); }
-        #color-3 { background-color: #32cd32; } /* Lime Green */
-        #color-4 { background: linear-gradient(45deg, red, orange, yellow, green, blue, indigo, violet); }
-
         #shape-info {
             position: absolute;
             top: 20px;
@@ -92,20 +47,48 @@
             white-space: nowrap;
             z-index: 10; /* Ensure info is above canvas */
         }
+        /* Contact Card Styling */
+        #contact-card {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(10, 10, 30, 0.85);
+            border-radius: 10px;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border: 1px solid #445;
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        #contact-card .name {
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            font-family: 'Courier New', monospace;
+        }
+        #contact-card .social-icons {
+            display: flex;
+            gap: 12px;
+        }
+        #contact-card .social-icons a {
+            color: #8a2be2;
+            transition: color 0.3s, transform 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #contact-card .social-icons a:hover {
+            color: #4169e1;
+            transform: scale(1.2);
+        }
     </style>
 </head>
 <body>
 
-    <div id="shape-info">Shape: Sphere (Click to morph)</div>
-    <div id="controls">
-        <button id="change-shape-btn">Change Shape</button>
-        <div id="color-options">
-            <button class="color-btn active" id="color-1" data-color="1"></button>
-            <button class="color-btn" id="color-2" data-color="2"></button>
-            <button class="color-btn" id="color-3" data-color="3"></button>
-            <button class="color-btn" id="color-4" data-color="4"></button>
-        </div>
-    </div>
+    <div id="shape-info">Shape: Sphere (Auto-changing)</div>
 
     <!-- Three.js library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -113,7 +96,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
-        let scene, camera, renderer, controls; // Add controls here
+        let scene, camera, renderer, controls;
         let particles, particlesGeometry;
         let stars, starsGeometry;
         let targetPositions = {};
@@ -122,12 +105,99 @@
         let morphProgress = 0;
         const morphDuration = 2.0; // seconds
         const particleCount = 15000;
-        const shapes = ['Sphere', 'Cube', 'Pyramid', 'Torus', 'Galaxy', 'Wave'];
+        let shapes = ['Sphere', 'Cube', 'Pyramid', 'Torus', 'Galaxy', 'Wave'];
         const shapeInfoElement = document.getElementById('shape-info');
-        const changeShapeButton = document.getElementById('change-shape-btn');
-        const colorButtons = document.querySelectorAll('.color-btn');
-        let currentColorScheme = 1;
+        let currentColorScheme = 2; // Set to color-2 scheme
         const clock = new THREE.Clock();
+        
+        // New variables for automatic shape changes and mouse following
+        let autoChangeInterval = 15; // seconds between automatic shape changes - increased for reading time
+        let lastAutoChangeTime = 0; // track when we last auto-changed
+        let mousePosition = new THREE.Vector2(0, 0); // to track mouse position
+        let targetRotation = new THREE.Euler(0, 0, 0); // target rotation for shape
+        let currentRotation = new THREE.Euler(0, 0, 0); // current rotation
+        let rotationSpeed = 2.0; // how quickly the shape rotates to follow mouse
+        let autoChangeEnabled = true; // toggle for auto-changing
+        
+        // Resume content configuration
+        const resumeSections = [
+            {
+                title: "EDUCATION",
+                content: [
+                    "1. The Ohio State University, Columbus, Ohio",
+                    "(Aug. 2024 — Jan. 2025)",
+                    "- Master of Engineering in Computer Science Engineering (CSE)",
+                    "",
+                    "2. National Taiwan University, Taipei, Taiwan",
+                    "(Sept. 2019 — June 2021)",
+                    "- Master of Science in Computer Science and Information Engineering (CSIE)",
+                    "- Master's Thesis: Singing Voice Separation Using U-Net and Its Compressed Version"
+                ]
+            },
+            {
+                title: "SKILLS",
+                content: [
+                    "1. Research Interests:",
+                    "Web3, Blockchain, Music Signal Analysis, Machine Learning, AI",
+                    "2. Programming:",
+                    "Solidity, Go, Rust, Java, TS/JS, Python, Cpp, SQL, Bash, Web Frameworks, CI/CD",
+                    "3. Software:",
+                    "Linux, Git, PostgreSQL, MongoDB, Redis, Docker, K8s, AWS, Azure, GCP",
+                ]
+            },
+            {
+                title: "PERSONAL PROJECTS",
+                content: [
+                    "1. Client-side Solana Trade Bot, Web3 project",
+                    "(Jan. 2025 — Current)",
+                    "- Designed an automated trading system to prevent abusing private keys",
+                    "- Focused on copy-trading and snipping tokens on Solana with user defined strategies",
+                    "- Analyzed event logs through websocket for accurate amount and triggering copy trades",
+                    "- Adopted Jupiter APIs for DEX routes optimizing and Jito nodes for higher tx sending speed",
+                    "",
+                    "2. Dounty, Web3 project",
+                    "(Jan. 2025 — Current)",
+                    "- A tool to incentivize developers to contribute to open source projects with bounties",
+                    "- Deployed Solana smart contracts to collect solana native token as bounties from donors",
+                    "- Designed quorum scheme through Solana smart contract for bounty issue and NFT rewards",
+                    "",
+                    "3. EVM/oracle monorepo, Web3 project",
+                    "(Apr. 2025 — Current)",
+                    "- A Typescript monorepo template project for friendly deployment of Solidity project",
+                    "- Deployed EVM contracts allow users to send and retrieve messages through Oracle",
+                    "",
+                    "4. Crypto price CLI display module, Trade project",
+                    "(May 2025)",
+                    "- A tool displays Bitcoin price data in terminal as ASCII chart with automatic refresh",
+                    "- Adopted CCXT for CEXes (Binance, OKX) flexible API support with little development"
+                ]
+            },
+            {
+                title: "WORK EXPERIENCE",
+                content: [
+                    "1. Mastertones Co., Ltd., Taipei (remote), Taiwan",
+                    "(July. 2024 — Dec. 2024)",
+                    "- Software Engineer, Application | Part-time",
+                    "- Designed and implemented APIs for AI Interactive Experience system using NestJS",
+                    "- Integrated AI model with RESTful APIs for the TTS system and dockerized for AWS",
+                    "",
+                    "2. Yating Intelligence Co., Ltd., Taipei, Taiwan",
+                    "May 2023 — July. 2024",
+                    "- Software Engineer, Application Service",
+                    "- Developed APIs using Go, NestJS, and PostgreSQL for web/mobile app features",
+                    "- Managed microservice systems on GCP using RestfulAPI, GRPC and Pub/Sub",
+                    "- Designed a post recommendation system, raised retention rate by 40%",
+                    "- Built features for TTS, ASR, and virtual talker services",
+                    "",
+                    "3. ASUSTeK Computer Inc., Taipei, Taiwan",
+                    "Mar. 2022 — Mar. 2023",
+                    "- Software Engineer, Asus Intelligent Cloud Service",
+                    "- Adapted an automated E2E testing system with Python and Selenium",
+                    "- Designed natural language commands, reducing QA development time by 50%",
+                    "- Improved response time by 30% through data flow and MongoDB optimization" 
+                ]
+            }
+        ];
 
         // --- Initialization ---
         function init() {
@@ -148,10 +218,13 @@
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true; // Enable smooth damping (inertia)
             controls.dampingFactor = 0.05; // Adjust damping intensity
-            controls.screenSpacePanning = false; // Optional: disable panning
-            controls.minDistance = 1;
-            controls.maxDistance = 20;
-
+            
+            // Creating text overlay for resume content
+            createResumeOverlay();
+            
+            // Update shapes to use resume sections
+            shapes = ['Education', 'Skills', 'Projects', 'Experience'];
+            
             // Particles Geometry
             particlesGeometry = new THREE.BufferGeometry();
             const positions = new Float32Array(particleCount * 3);
@@ -183,7 +256,6 @@
 
             // Particles Object
             particles = new THREE.Points(particlesGeometry, particleMaterial);
-             // IMPORTANT: Add particles directly to the scene, NOT as a child of another rotated object
             scene.add(particles);
 
             // Background Stars
@@ -218,214 +290,356 @@
             stars = new THREE.Points(starsGeometry, starsMaterial);
             scene.add(stars);
 
-
             // Pre-calculate all target positions
             generateShapePositions();
-            // Set initial shape
-            setShape(currentShapeIndex, true); // true to skip animation
-            // Set initial colors
+            
+            // Set initial shape to Education
+            currentShapeIndex = 0;
+            setShape(currentShapeIndex, true);
             applyColorScheme(currentColorScheme);
-
+            updateResumeContent(currentShapeIndex);
+            
             // Event Listeners
             window.addEventListener('resize', onWindowResize, false);
-            changeShapeButton.addEventListener('click', triggerMorph);
-            // Also allow clicking on the shape info to trigger morph
-            shapeInfoElement.addEventListener('click', triggerMorph);
-            shapeInfoElement.style.cursor = 'pointer'; // Indicate clickable
-
-            colorButtons.forEach(button => {
-                button.addEventListener('click', (event) => {
-                    if (isMorphing) return; // Don't change color while morphing
-                    const scheme = parseInt(event.target.getAttribute('data-color'));
-                    if (scheme !== currentColorScheme) {
-                        currentColorScheme = scheme;
-                        applyColorScheme(scheme);
-                        updateColorButtons();
-                    }
-                });
-            });
-            updateColorButtons();
-
+            window.addEventListener('mousemove', onMouseMove, false);
+            shapeInfoElement.addEventListener('click', toggleAutoChange);
+            
+            // Add keyboard navigation for resume sections
+            window.addEventListener('keydown', handleKeyNavigation);
+            
+            updateShapeInfo();
+            
             // Start animation loop
             animate();
+        }
+        
+        // Mouse movement handler - Adding missing function definition
+        function onMouseMove(event) {
+            // Calculate normalized device coordinates (-1 to +1) for mouse position
+            mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            // Map mouse position to rotation angles - X position affects Y rotation
+            // and Y position affects X rotation (inverted)
+            targetRotation.y = mousePosition.x * Math.PI * 0.5; // 90 degrees max rotation
+            targetRotation.x = -mousePosition.y * Math.PI * 0.3; // 60 degrees max rotation
+        }
+        
+        // Create HTML overlay for resume content
+        function createResumeOverlay() {
+            const overlay = document.createElement('div');
+            overlay.id = 'resume-overlay';
+            overlay.style.position = 'absolute';
+            overlay.style.top = '80px';
+            overlay.style.left = '50%';  // Center horizontally
+            overlay.style.transform = 'translateX(-50%)';  // Center alignment
+            overlay.style.width = '600px';  // Wider for better readability
+            overlay.style.maxHeight = '80vh';
+            overlay.style.overflowY = 'auto';
+            overlay.style.backgroundColor = 'rgba(10, 10, 30, 0.85)';
+            overlay.style.padding = '25px';  // More padding
+            overlay.style.borderRadius = '10px';
+            overlay.style.color = 'white';
+            overlay.style.fontFamily = "'Courier New', monospace";
+            overlay.style.fontSize = '18px';  // Bigger font
+            overlay.style.zIndex = '100';
+            overlay.style.border = '1px solid #445';
+            overlay.style.backdropFilter = 'blur(5px)';
+            overlay.style.boxShadow = '0 4px 20px rgba(0,0,0,0.5)';
+            document.body.appendChild(overlay);
+        }
+        
+        // Update resume content in the overlay
+        function updateResumeContent(sectionIndex) {
+            const overlay = document.getElementById('resume-overlay');
+            const section = resumeSections[sectionIndex];
+            
+            let html = `<h2 style="color:#8a2be2;margin-top:0;border-bottom:1px solid #4169e1;padding-bottom:10px">
+                        ${section.title}</h2>`;
+                        
+            html += '<div style="line-height:1.5">';
+            section.content.forEach(line => {
+                if (line === "") {
+                    html += '<br>';
+                } else if (line.startsWith('-')) {
+                    html += `<div style="padding-left:15px;color:#bbd">${line}</div>`;
+                } else if (line.match(/^\d+\./)) {
+                    html += `<div style="margin-top:12px;color:#3cb371;font-weight:bold">${line}</div>`;
+                } else {
+                    html += `<div>${line}</div>`;
+                }
+            });
+            html += '</div>';
+            
+            // Add navigation hint
+            html += `<div style="margin-top:20px;font-size:12px;color:#aaa;text-align:center">
+                    Press arrow keys or click section title to navigate • Section ${sectionIndex + 1} of 4</div>`;
+            
+            overlay.innerHTML = html;
+        }
+        
+        // Handle keyboard navigation between sections
+        function handleKeyNavigation(event) {
+            if (isMorphing) return;
+            
+            if (event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === 'j' || event.key === 'l') {
+                // Next section
+                lastAutoChangeTime = clock.getElapsedTime();
+                goToSection((currentShapeIndex + 1) % shapes.length);
+            } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'k' || event.key === 'h') {
+                // Previous section
+                lastAutoChangeTime = clock.getElapsedTime();
+                goToSection((currentShapeIndex - 1 + shapes.length) % shapes.length);
+            }
+        }
+        
+        // Go to a specific section
+        function goToSection(index) {
+            if (isMorphing || index === currentShapeIndex) return;
+            
+            // Store current position for morphing
+            const currentPositions = particlesGeometry.attributes.position.array;
+            const startPositionsAttribute = particlesGeometry.attributes.startPosition;
+            for(let i=0; i < currentPositions.length; i++) {
+                startPositionsAttribute.array[i] = currentPositions[i];
+            }
+            startPositionsAttribute.needsUpdate = true;
+            
+            // Set the target section
+            isMorphing = true;
+            morphProgress = 0;
+            currentShapeIndex = index;
+            shapeInfoElement.textContent = 'Morphing...';
+            
+            // Update resume content immediately for better UX
+            updateResumeContent(currentShapeIndex);
+        }
+
+        // Toggle auto-change feature
+        function toggleAutoChange() {
+            autoChangeEnabled = !autoChangeEnabled;
+            updateShapeInfo();
+        }
+        
+        // Update shape info text based on current state
+        function updateShapeInfo() {
+            const currentShape = shapes[currentShapeIndex];
+            if (autoChangeEnabled) {
+                shapeInfoElement.textContent = `${resumeSections[currentShapeIndex].title} (Auto-changing)`;
+            } else {
+                shapeInfoElement.textContent = `${resumeSections[currentShapeIndex].title} (Click to toggle auto-change)`;
+            }
         }
 
         // --- Shape Generation ---
         function generateShapePositions() {
-            targetPositions['Sphere'] = generateSpherePositions();
-            targetPositions['Cube'] = generateCubePositions();
-            targetPositions['Pyramid'] = generatePyramidPositions();
-            targetPositions['Torus'] = generateTorusPositions();
-            targetPositions['Galaxy'] = generateGalaxyPositions();
-            targetPositions['Wave'] = generateWavePositions();
+            targetPositions['Education'] = generateEducationShape();
+            targetPositions['Skills'] = generateSkillsShape();
+            targetPositions['Projects'] = generateProjectsShape();
+            targetPositions['Experience'] = generateExperienceShape();
         }
-
-        function generateSpherePositions() {
+        
+        // Generate a shape representing Education (Modified Sphere)
+        function generateEducationShape() {
             const positions = new Float32Array(particleCount * 3);
             const radius = 1.5;
             const randomFactors = particlesGeometry.attributes.randomFactor.array;
+            
+            // Create two connected spheres representing two degrees
             for (let i = 0; i < particleCount; i++) {
                 const idx = i + 0.5;
-                const phi = Math.acos(1 - 2 * idx / particleCount);
+                // Determine which sphere this particle belongs to
+                const inFirstSphere = i < particleCount * 0.6;
+                const phi = Math.acos(1 - 2 * (idx % (particleCount * 0.6)) / (particleCount * 0.6));
                 const theta = Math.PI * (1 + Math.sqrt(5)) * idx;
-                const x = radius * Math.sin(phi) * Math.cos(theta);
-                const y = radius * Math.sin(phi) * Math.sin(theta);
-                const z = radius * Math.cos(phi);
+                
+                // Base position on sphere
+                let x = radius * Math.sin(phi) * Math.cos(theta);
+                let y = radius * Math.sin(phi) * Math.sin(theta);
+                let z = radius * Math.cos(phi);
+                
+                // Add perturbation
                 const perturbation = (randomFactors[i] - 0.5) * 0.1;
-                positions[i * 3] = x + perturbation * x / radius;
-                positions[i * 3 + 1] = y + perturbation * y / radius;
-                positions[i * 3 + 2] = z + perturbation * z / radius;
+                x += perturbation * x / radius;
+                y += perturbation * y / radius;
+                z += perturbation * z / radius;
+                
+                // Offset second sphere
+                if (!inFirstSphere) {
+                    x *= 0.7;
+                    y *= 0.7;
+                    z = z - 1.5;
+                }
+                
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
             }
             return positions;
         }
-
-        function generateCubePositions() {
+        
+        // Generate a shape representing Skills (Spiral structure)
+        function generateSkillsShape() {
             const positions = new Float32Array(particleCount * 3);
-            const halfSize = 1.2;
+            const randomFactors = particlesGeometry.attributes.randomFactor.array;
+            
+            // Create branching structure for different skill categories
             for (let i = 0; i < particleCount; i++) {
-                const face = Math.floor(Math.random() * 6);
+                const category = Math.floor(randomFactors[i] * 3); // 3 skill categories
+                const t = (i % (particleCount/3)) / (particleCount/3) * Math.PI * 6; // Parameter along spiral
+                
                 let x, y, z;
-                const r1 = (Math.random() - 0.5) * 2 * halfSize;
-                const r2 = (Math.random() - 0.5) * 2 * halfSize;
-                switch(face) {
-                    case 0: x = halfSize; y = r1; z = r2; break;
-                    case 1: x = -halfSize; y = r1; z = r2; break;
-                    case 2: x = r1; y = halfSize; z = r2; break;
-                    case 3: x = r1; y = -halfSize; z = r2; break;
-                    case 4: x = r1; y = r2; z = halfSize; break;
-                    case 5: x = r1; y = r2; z = -halfSize; break;
+                const radius = 0.8 + t * 0.05;
+                
+                // Different spiral for each category
+                switch(category) {
+                    case 0: // Research interests
+                        x = radius * Math.cos(t);
+                        y = t * 0.1;
+                        z = radius * Math.sin(t);
+                        break;
+                    case 1: // Programming skills
+                        x = radius * Math.cos(t + Math.PI * 2/3);
+                        y = t * 0.1 - 0.5;
+                        z = radius * Math.sin(t + Math.PI * 2/3);
+                        break;
+                    case 2: // Software skills
+                        x = radius * Math.cos(t + Math.PI * 4/3);
+                        y = t * 0.1 - 1.0;
+                        z = radius * Math.sin(t + Math.PI * 4/3);
+                        break;
                 }
+                
+                // Add some noise
+                const noise = (randomFactors[i] - 0.5) * 0.1;
+                x += noise;
+                z += noise;
+                
                 positions[i * 3] = x;
                 positions[i * 3 + 1] = y;
                 positions[i * 3 + 2] = z;
             }
             return positions;
         }
-
-        function generatePyramidPositions() {
+        
+        // Generate a shape representing Projects (4 interconnected nodes)
+        function generateProjectsShape() {
             const positions = new Float32Array(particleCount * 3);
-            const height = 1.8;
-            const baseSize = 1.5;
-            const apex = new THREE.Vector3(0, height / 2, 0);
-            const baseCorners = [
-                new THREE.Vector3(-baseSize, -height / 2, -baseSize),
-                new THREE.Vector3(baseSize, -height / 2, -baseSize),
-                new THREE.Vector3(baseSize, -height / 2, baseSize),
-                new THREE.Vector3(-baseSize, -height / 2, baseSize)
-            ];
+            const randomFactors = particlesGeometry.attributes.randomFactor.array;
+            
+            // Create 4 clusters for 4 projects with connecting paths
             for (let i = 0; i < particleCount; i++) {
-                const face = Math.floor(Math.random() * 5);
-                let p = new THREE.Vector3();
-                if (face < 4) {
-                    const v1 = apex;
-                    const v2 = baseCorners[face];
-                    const v3 = baseCorners[(face + 1) % 4];
-                    let u = Math.random();
-                    let v = Math.random();
-                    if (u + v > 1) { u = 1 - u; v = 1 - v; }
-                    let w = 1 - u - v;
-                    p.x = u * v1.x + v * v2.x + w * v3.x;
-                    p.y = u * v1.y + v * v2.y + w * v3.y;
-                    p.z = u * v1.z + v * v2.z + w * v3.z;
+                const projectIndex = Math.floor(randomFactors[i] * 4); // 4 projects
+                const isConnector = randomFactors[i] > 0.85; // Some particles form connectors
+                
+                let x, y, z;
+                
+                if (isConnector) {
+                    // Create connecting paths between project nodes
+                    const fromProject = Math.floor(randomFactors[i] * 3);
+                    const toProject = fromProject + 1;
+                    
+                    // Get positions of the two projects
+                    const fromPos = getProjectPosition(fromProject);
+                    const toPos = getProjectPosition(toProject);
+                    
+                    // Interpolate along the path with some randomness
+                    const t = (randomFactors[(i*13) % particleCount]);
+                    x = fromPos.x * (1-t) + toPos.x * t;
+                    y = fromPos.y * (1-t) + toPos.y * t;
+                    z = fromPos.z * (1-t) + toPos.z * t;
+                    
+                    // Add arc to path
+                    y += Math.sin(t * Math.PI) * 0.5;
+                    
+                    // Add some noise
+                    const noise = (randomFactors[(i*17) % particleCount] - 0.5) * 0.2;
+                    x += noise;
+                    z += noise;
                 } else {
-                    p.x = THREE.MathUtils.randFloat(-baseSize, baseSize);
-                    p.y = -height / 2;
-                    p.z = THREE.MathUtils.randFloat(-baseSize, baseSize);
+                    // Create project nodes
+                    const pos = getProjectPosition(projectIndex);
+                    const phi = Math.acos(1 - 2 * randomFactors[(i*11) % particleCount]);
+                    const theta = 2 * Math.PI * randomFactors[(i*7) % particleCount];
+                    
+                    const radius = 0.4;
+                    x = pos.x + radius * Math.sin(phi) * Math.cos(theta) * 0.6;
+                    y = pos.y + radius * Math.sin(phi) * Math.sin(theta) * 0.6;
+                    z = pos.z + radius * Math.cos(phi) * 0.6;
                 }
-                positions[i * 3] = p.x;
-                positions[i * 3 + 1] = p.y;
-                positions[i * 3 + 2] = p.z;
-            }
-            return positions;
-        }
-
-        function generateTorusPositions() {
-            const positions = new Float32Array(particleCount * 3);
-            const radius = 1.2;
-            const tube = 0.5;
-            const randomFactors = particlesGeometry.attributes.randomFactor.array;
-            for (let i = 0; i < particleCount; i++) {
-                const u = Math.random() * Math.PI * 2;
-                const v = Math.random() * Math.PI * 2;
-                const R_actual = radius + tube * Math.cos(v);
-                positions[i * 3] = R_actual * Math.cos(u);
-                positions[i * 3 + 1] = R_actual * Math.sin(u);
-                positions[i * 3 + 2] = tube * Math.sin(v);
-                const fuzz = (randomFactors[i] - 0.5) * 0.05;
-                positions[i * 3] += fuzz * Math.cos(u) * Math.cos(v);
-                positions[i * 3 + 1] += fuzz * Math.sin(u) * Math.cos(v);
-                positions[i * 3 + 2] += fuzz * Math.sin(v);
-            }
-            return positions;
-        }
-
-        function generateGalaxyPositions() {
-            const positions = new Float32Array(particleCount * 3);
-            const numArms = 3;
-            const armSeparation = (Math.PI * 2) / numArms;
-            const armLength = 5.0;
-            const armTightness = 0.5;
-            const bulgeRadius = 0.5;
-            const diskThickness = 0.2;
-            const randomFactors = particlesGeometry.attributes.randomFactor.array;
-            for (let i = 0; i < particleCount; i++) {
-                const rand = randomFactors[i];
-                const armIndex = Math.floor(rand * numArms);
-                const armAngleOffset = armIndex * armSeparation;
-                const dist = Math.pow(Math.random(), 1.5);
-                const angle = dist * armLength;
-                const radius = bulgeRadius * 0.5 + angle / armTightness;
-                const theta = angle + armAngleOffset;
-                let x = radius * Math.cos(theta); // Use let
-                let y = radius * Math.sin(theta); // Use let
-                const randomAngle = Math.random() * Math.PI * 2;
-                const randomRadius = Math.pow(Math.random(), 2) * radius * 0.2;
-                x += randomRadius * Math.cos(randomAngle);
-                y += randomRadius * Math.sin(randomAngle);
-                let z = (Math.random() - 0.5) * diskThickness * (1 - dist * 0.8) * Math.exp(-dist); // Use let (FIXED)
-                if (Math.random() < 0.15) {
-                    const bulgeDist = Math.random() * bulgeRadius;
-                    const bulgePhi = Math.acos(1 - 2 * Math.random());
-                    const bulgeTheta = Math.random() * Math.PI * 2;
-                    x = bulgeDist * Math.sin(bulgePhi) * Math.cos(bulgeTheta);
-                    y = bulgeDist * Math.sin(bulgePhi) * Math.sin(bulgeTheta);
-                    z = bulgeDist * Math.cos(bulgePhi) * 1.2 + (Math.random()-0.5) * 0.1; // Assign to let is OK
-                }
-                positions[i * 3] = x * 0.6;
-                positions[i * 3 + 1] = y * 0.6;
-                positions[i * 3 + 2] = z * 1.5;
-            }
-            return positions;
-        }
-
-        function generateWavePositions() {
-            const positions = new Float32Array(particleCount * 3);
-            const width = 4;
-            const depth = 4;
-            const amplitude = 0.3;
-            const frequency = 2.5;
-            const randomFactors = particlesGeometry.attributes.randomFactor.array;
-            for (let i = 0; i < particleCount; i++) {
-                const r = Math.sqrt(randomFactors[i]);
-                const angle = Math.random() * Math.PI * 2;
-                const x = r * Math.cos(angle) * width / 2;
-                const z = r * Math.sin(angle) * depth / 2;
-                const distFromCenter = Math.sqrt(x * x + z * z);
-                let y = amplitude * Math.sin(distFromCenter * frequency); // Use let (FIXED)
-                y += amplitude * 0.3 * Math.cos(x * frequency * 0.7 + z * frequency * 0.5); // += on let is OK
-                y += (Math.random() - 0.5) * 0.05; // += on let is OK
+                
                 positions[i * 3] = x;
                 positions[i * 3 + 1] = y;
                 positions[i * 3 + 2] = z;
             }
             return positions;
         }
-
+        
+        // Helper function to get project node positions
+        function getProjectPosition(index) {
+            const positions = [
+                { x: -1.2, y: 0.8, z: 0.5 },   // Project 1
+                { x: 1.2, y: 0.8, z: 0.5 },    // Project 2
+                { x: -1.2, y: -0.8, z: 0.5 },  // Project 3
+                { x: 1.2, y: -0.8, z: 0.5 }    // Project 4
+            ];
+            return positions[index];
+        }
+        
+        // Generate a shape representing Work Experience (Timeline structure)
+        function generateExperienceShape() {
+            const positions = new Float32Array(particleCount * 3);
+            const randomFactors = particlesGeometry.attributes.randomFactor.array;
+            
+            // Create a timeline with 3 job nodes
+            for (let i = 0; i < particleCount; i++) {
+                // Determine which job this particle belongs to
+                const jobIndex = Math.floor(randomFactors[i] * 3);
+                const isTimeline = randomFactors[i] > 0.9; // Some particles form the timeline
+                
+                let x, y, z;
+                
+                if (isTimeline) {
+                    // Create timeline backbone
+                    x = (randomFactors[(i*23) % particleCount] - 0.5) * 3;
+                    y = 0;
+                    z = -0.5;
+                    
+                    // Add some waviness
+                    y += Math.sin(x * 4) * 0.05;
+                } else {
+                    // Create job nodes expanded vertically
+                    const jobPosition = -1.5 + jobIndex * 1.5; // Space jobs along x-axis
+                    const jobSize = 0.4 + (3-jobIndex) * 0.15; // Earlier jobs are slightly larger (more details)
+                    
+                    // Base position within job node
+                    const phi = Math.acos(1 - 2 * randomFactors[(i*31) % particleCount]);
+                    const theta = 2 * Math.PI * randomFactors[(i*41) % particleCount];
+                    
+                    const nodeRadius = jobSize;
+                    
+                    // Create vertically expanded cylinder
+                    const heightFactor = 1.8;
+                    x = jobPosition + nodeRadius * Math.sin(phi) * Math.cos(theta) * 0.6;
+                    y = nodeRadius * heightFactor * Math.sin(phi) * Math.sin(theta);
+                    z = nodeRadius * Math.cos(phi) * 0.6;
+                    
+                    // Flatten slightly (more horizontal spread)
+                    x *= 1.2;
+                    z *= 0.8;
+                }
+                
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+            }
+            return positions;
+        }
 
         // --- Morphing ---
         function triggerMorph() {
-            // Prevent triggering another morph while one is in progress OR if button disabled
-            if (isMorphing || changeShapeButton.disabled) return;
+            // Prevent triggering another morph while one is in progress
+            if (isMorphing) return;
 
             isMorphing = true;
             morphProgress = 0;
@@ -444,7 +658,6 @@
 
             // Update UI immediately
             shapeInfoElement.textContent = 'Morphing...';
-            changeShapeButton.disabled = true; // Disable button during morph
         }
 
         function updateMorph(deltaTime) {
@@ -454,7 +667,6 @@
             if (morphDuration <= 0) {
                 console.error("morphDuration must be positive!");
                 isMorphing = false;
-                changeShapeButton.disabled = false;
                 shapeInfoElement.textContent = `Error: Invalid morph duration`;
                 return;
             }
@@ -467,18 +679,10 @@
             // This value will determine if the animation time is complete
             const clampedRawProgressRatio = Math.max(0.0, Math.min(rawProgressRatio, 1.0));
 
-            // --- DEBUG ---
-            // console.log(`Raw: ${(morphProgress / morphDuration).toFixed(4)}, ClampedRaw: ${clampedRawProgressRatio.toFixed(4)}`);
-
             // 3. Apply easing function ONLY to the clamped ratio for interpolation
-            // Use the clamped value as input to prevent easing output < 1 when input > 1
             let easedProgressRatio = clampedRawProgressRatio < 0.5 ? 2 * clampedRawProgressRatio * clampedRawProgressRatio : 1 - Math.pow(-2 * clampedRawProgressRatio + 2, 2) / 2;
             // Optional: Clamp eased value too, just to be safe (though shouldn't be needed now)
             easedProgressRatio = Math.max(0.0, Math.min(easedProgressRatio, 1.0));
-
-            // --- DEBUG ---
-            // console.log(`Eased: ${easedProgressRatio.toFixed(4)}`);
-
 
             const currentPosAttr = particlesGeometry.attributes.position;
             const startPositions = particlesGeometry.attributes.startPosition.array;
@@ -488,14 +692,17 @@
             // --- Crucial Checks ---
             if (!target) {
                 console.error(`Target positions for shape "${targetShapeName}" (index ${currentShapeIndex}) not found!`);
-                isMorphing = false; changeShapeButton.disabled = false; shapeInfoElement.textContent = `Error: Target shape data missing`; return;
+                isMorphing = false;
+                shapeInfoElement.textContent = `Error: Target shape data missing`;
+                return;
             }
             if (target.length !== currentPosAttr.count * 3 || startPositions.length !== currentPosAttr.count * 3) {
                  console.error(`Array length mismatch! Morphing to "${targetShapeName}".`);
-                 isMorphing = false; changeShapeButton.disabled = false; shapeInfoElement.textContent = `Error: Shape data size mismatch`; return;
+                 isMorphing = false;
+                 shapeInfoElement.textContent = `Error: Shape data size mismatch`;
+                 return;
             }
             // --- End Crucial Checks ---
-
 
             // 4. Interpolate using the EASED progress ratio
             for (let i = 0; i < particleCount; i++) {
@@ -509,45 +716,35 @@
             }
             currentPosAttr.needsUpdate = true;
 
-            // Optional color update...
-            // applyColorScheme(currentColorScheme);
-
+            // Apply color-2 scheme while morphing
+            applyColorScheme(currentColorScheme);
 
             // 5. Check for completion using the CLAMPED RAW progress ratio
-            // This reliably indicates if the morph duration has passed
-            // --- DEBUG ---
-            // console.log(`Checking completion: clampedRawProgressRatio=${clampedRawProgressRatio.toFixed(4)}`);
-
             if (clampedRawProgressRatio >= 1.0) {
-                 console.log(">>> Morph completion block entered <<<"); // Keep this log for confirmation
-
                 isMorphing = false; // Reset flag FIRST
                 morphProgress = 0;  // Reset progress time
 
                 try {
                     // Snap precisely to the final target position
-                    console.log(`Snapping to final shape: ${shapes[currentShapeIndex]}`);
                     setShape(currentShapeIndex, false); // updateText = false
                 } catch (e) {
                     console.error("Error during setShape in morph completion:", e);
                 }
 
                 // Update UI elements AFTER resetting isMorphing flag
-                shapeInfoElement.textContent = `Shape: ${shapes[currentShapeIndex]} (Click to morph)`;
-                changeShapeButton.disabled = false; // **** Re-enable button ****
+                updateShapeInfo();
+                updateResumeContent(currentShapeIndex); // Update resume section
 
-                // Apply final color scheme precisely
+                // Apply color-2 scheme precisely
                 try {
-                     applyColorScheme(currentColorScheme);
-                 } catch(e) {
-                      console.error("Error during final applyColorScheme:", e);
-                 }
-
-                 console.log("<<< Morph completion block finished >>>"); // Keep this log for confirmation
+                    applyColorScheme(currentColorScheme);
+                } catch(e) {
+                    console.error("Error during final applyColorScheme:", e);
+                }
             }
         }
-        // Minor change in setShape: Use count attribute for clarity
-        function setShape(index, updateText = false) { // Changed second param name
+
+        function setShape(index, updateText = false) {
             const targetShapeName = shapes[index];
             const target = targetPositions[targetShapeName];
             if (!target) {
@@ -566,16 +763,19 @@
             }
             positions.needsUpdate = true; // Tell Three.js the buffer changed
 
-             // Update info text only if requested AND not currently morphing
+            // Update info text only if requested AND not currently morphing
             if (updateText && !isMorphing) {
-               shapeInfoElement.textContent = `Shape: ${targetShapeName} (Click to morph)`;
+               updateShapeInfo();
             }
             // Recompute bounding box after changing shape significantly
-             particlesGeometry.computeBoundingBox();
+            particlesGeometry.computeBoundingBox();
         }
 
         // --- Coloring ---
         function applyColorScheme(scheme) {
+            // Always use color-2 scheme (purple/blue/green gradient)
+            scheme = 2;
+            
             const positions = particlesGeometry.attributes.position.array;
             const colors = particlesGeometry.attributes.color.array;
             const color = new THREE.Color();
@@ -584,70 +784,32 @@
             if (!particlesGeometry.boundingBox) {
                  particlesGeometry.computeBoundingBox();
             }
-            const bounds = particlesGeometry.boundingBox;
+            let bounds = particlesGeometry.boundingBox;
              // Handle cases where bounding box might be invalid initially
              if (!bounds || !bounds.min || !bounds.max || bounds.isEmpty()) {
                 console.warn("Invalid bounding box in applyColorScheme, using defaults.");
                  // Provide default fallbacks if bounds are bad
-                 bounds = { min: new THREE.Vector3(-1,-1,-1), max: new THREE.Vector3(1,1,1) };
-                 bounds.getCenter = function(vec) { vec.set(0,0,0); return vec;}
+                 bounds = { 
+                     min: new THREE.Vector3(-1,-1,-1), 
+                     max: new THREE.Vector3(1,1,1),
+                     getCenter: function(vec) { vec.set(0,0,0); return vec; }
+                 };
              }
-
-
-            const minY = bounds.min.y;
-            const maxY = bounds.max.y;
-            const rangeY = Math.max(0.001, maxY - minY); // Avoid division by zero
 
             const minX = bounds.min.x;
             const maxX = bounds.max.x;
             const rangeX = Math.max(0.001, maxX - minX);
 
-            const minZ = bounds.min.z;
-            const maxZ = bounds.max.z;
-            const rangeZ = Math.max(0.001, maxZ - minZ);
-
-            const center = new THREE.Vector3();
-            bounds.getCenter(center);
-
-
             for (let i = 0; i < particleCount; i++) {
                 const i3 = i * 3;
-                 // Bounds check for safety
-                 if (i3 + 2 >= positions.length || i3 + 2 >= colors.length) continue;
+                // Bounds check for safety
+                if (i3 + 2 >= positions.length || i3 + 2 >= colors.length) continue;
 
                 const x = positions[i3];
-                const y = positions[i3 + 1];
-                const z = positions[i3 + 2];
-
-                switch(scheme) {
-                    case 1: // Orange/Yellow gradient based on Y
-                        const ratioY1 = THREE.MathUtils.clamp((y - minY) / rangeY, 0, 1);
-                        color.setHSL(0.1 + ratioY1 * 0.05, 1.0, 0.5 + ratioY1 * 0.1);
-                        break;
-                    case 2: // Purple/Blue/Green gradient based on X
-                        const ratioX2 = THREE.MathUtils.clamp((x - minX) / rangeX, 0, 1);
-                        color.setHSL(0.75 - ratioX2 * 0.3 , 0.8, 0.5);
-                        break;
-                    case 3: // Green based on Z
-                         const ratioZ3 = THREE.MathUtils.clamp((z - minZ) / rangeZ, 0, 1);
-                         color.setHSL(0.35, 0.7 + ratioZ3 * 0.2 , 0.45 + ratioZ3 * 0.1);
-                        break;
-                    case 4: // Rainbow based on angle around Y
-                         const dx = x - center.x;
-                         const dz = z - center.z;
-                         const angle = Math.atan2(dz, dx);
-                         const hue = ((angle / (Math.PI * 2)) + 0.5 + 1.0) % 1.0; // Map -PI to PI -> 0 to 1, ensure positive
-                         const dy = y - center.y;
-                         const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                         const maxDim = Math.max(rangeX, rangeY, rangeZ);
-                         const maxDist = maxDim > 0 ? maxDim * 0.6 : 1.0; // Avoid division by zero if range is 0
-                         const saturation = 0.6 + (dist / maxDist) * 0.4;
-                         const lightness = 0.5 + (dy / rangeY) * 0.1;
-                         color.setHSL(hue, THREE.MathUtils.clamp(saturation, 0.6, 1.0), THREE.MathUtils.clamp(lightness, 0.4, 0.6));
-                        break;
-                    default:
-                        color.setHex(0xffffff);
-                }
+                
+                // Purple/Blue/Green gradient based on X
+                const ratioX2 = THREE.MathUtils.clamp((x - minX) / rangeX, 0, 1);
+                color.setHSL(0.75 - ratioX2 * 0.3, 0.8, 0.5);
 
                 colors[i3] = color.r;
                 colors[i3 + 1] = color.g;
@@ -656,33 +818,38 @@
             particlesGeometry.attributes.color.needsUpdate = true;
         }
 
-        function updateColorButtons() {
-            colorButtons.forEach(button => {
-                if (parseInt(button.getAttribute('data-color')) === currentColorScheme) {
-                    button.classList.add('active');
-                } else {
-                    button.classList.remove('active');
-                }
-            });
-        }
-
-
         // --- Animation Loop ---
         function animate() {
             requestAnimationFrame(animate);
 
             const deltaTime = clock.getDelta();
+            const elapsedTime = clock.getElapsedTime();
+
+            // Check for auto shape change if enabled and not currently morphing
+            if (autoChangeEnabled && !isMorphing && 
+                (elapsedTime - lastAutoChangeTime > autoChangeInterval)) {
+                lastAutoChangeTime = elapsedTime;
+                goToSection((currentShapeIndex + 1) % shapes.length);
+            }
 
             // Update morphing state
             updateMorph(deltaTime);
 
+            // Smooth rotation toward mouse position
+            if (!isMorphing) { // Only rotate when not morphing to avoid visual conflicts
+                currentRotation.x += (targetRotation.x - currentRotation.x) * rotationSpeed * deltaTime;
+                currentRotation.y += (targetRotation.y - currentRotation.y) * rotationSpeed * deltaTime;
+                particles.rotation.x = currentRotation.x;
+                particles.rotation.y = currentRotation.y;
+            }
+            
             // Update OrbitControls (handles camera rotation/zoom/pan)
             controls.update(); // Must be called if controls.enableDamping is true
 
             // Optional: Slow rotation for background stars
-             if (stars) {
-                 stars.rotation.y += deltaTime * 0.005;
-             }
+            if (stars) {
+                stars.rotation.y += deltaTime * 0.005;
+            }
 
             renderer.render(scene, camera);
         }
@@ -696,7 +863,32 @@
 
         // --- Start ---
         init();
-
     </script>
+
+    <!-- Contact Info Card -->
+    <div id="contact-card">
+        <div class="name">Yuli W.</div>
+        <div class="social-icons">
+            <a href="mailto:angles.anodes.0v@icloud.com" title="Email">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                    <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+            </a>
+            <a href="https://www.linkedin.com/in/willywangkaa" target="_blank" title="LinkedIn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+                    <rect x="2" y="9" width="4" height="12"></rect>
+                    <circle cx="4" cy="4" r="2"></circle>
+                </svg>
+            </a>
+            <a href="https://github.com/WangWilly" target="_blank" title="GitHub">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+
 </body>
 </html>
