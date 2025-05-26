@@ -6,6 +6,49 @@ function createResumeOverlay() {
     overlay.id = 'resume-overlay';
     document.body.appendChild(overlay);
     updateResumeContent(currentShapeIndex);
+    
+    // Add touch events for mobile
+    overlay.addEventListener('touchstart', handleTouchStart, false);
+    overlay.addEventListener('touchmove', handleTouchMove, false);
+}
+
+// Track touch gestures
+let touchStartX = 0;
+let touchStartY = 0;
+
+// Handle touch start event
+function handleTouchStart(event) {
+    touchStartX = event.touches[0].clientX;
+    touchStartY = event.touches[0].clientY;
+}
+
+// Handle touch move event for swipe navigation
+function handleTouchMove(event) {
+    if (!touchStartX || !touchStartY || isMorphing) {
+        return;
+    }
+    
+    const touchEndX = event.touches[0].clientX;
+    const touchEndY = event.touches[0].clientY;
+    
+    const diffX = touchStartX - touchEndX;
+    const diffY = touchStartY - touchEndY;
+    
+    // If horizontal swipe is greater than vertical and exceeds threshold
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+        lastAutoChangeTime = clock.getElapsedTime();
+        if (diffX > 0) {
+            // Swipe left - next section
+            goToSection((currentShapeIndex + 1) % shapes.length);
+        } else {
+            // Swipe right - previous section
+            goToSection((currentShapeIndex - 1 + shapes.length) % shapes.length);
+        }
+        
+        // Reset touch start position
+        touchStartX = 0;
+        touchStartY = 0;
+    }
 }
 
 // Update resume content in the overlay
@@ -30,9 +73,9 @@ function updateResumeContent(sectionIndex) {
     });
     html += '</div>';
     
-    // Add navigation hint
+    // Add navigation hint with mobile-friendly instructions
     html += `<div style="margin-top:20px;font-size:12px;color:#aaa;text-align:center">
-            Press arrow keys or click section title to navigate • Section ${sectionIndex + 1} of 4</div>`;
+            Use arrow keys or swipe to navigate • Section ${sectionIndex + 1} of 4</div>`;
     
     overlay.innerHTML = html;
 }
@@ -49,7 +92,7 @@ function updateShapeInfo() {
     if (autoChangeEnabled) {
         shapeInfoElement.textContent = `${resumeSections[currentShapeIndex].title} (Auto-changing)`;
     } else {
-        shapeInfoElement.textContent = `${resumeSections[currentShapeIndex].title} (Click to toggle auto-change)`;
+        shapeInfoElement.textContent = `${resumeSections[currentShapeIndex].title} (Tap to toggle)`;
     }
 }
 
@@ -100,6 +143,21 @@ function onMouseMove(event) {
     // and Y position affects X rotation (inverted)
     targetRotation.y = mousePosition.x * Math.PI * 0.5; // 90 degrees max rotation
     targetRotation.x = -mousePosition.y * Math.PI * 0.3; // 60 degrees max rotation
+}
+
+// Handle touch movement for rotation on mobile
+function handleTouchRotation(event) {
+    if (event.touches.length === 1) {
+        const touch = event.touches[0];
+        mousePosition.x = (touch.clientX / window.innerWidth) * 2 - 1;
+        mousePosition.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+        
+        targetRotation.y = mousePosition.x * Math.PI * 0.5;
+        targetRotation.x = -mousePosition.y * Math.PI * 0.3;
+        
+        // Prevent default to avoid scrolling while rotating
+        event.preventDefault();
+    }
 }
 
 // Window resize handler

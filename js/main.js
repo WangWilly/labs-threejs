@@ -123,8 +123,20 @@ function init() {
     window.addEventListener('mousemove', onMouseMove, false);
     shapeInfoElement.addEventListener('click', toggleAutoChange);
     
+    // Add touch events for mobile
+    window.addEventListener('touchmove', handleTouchRotation, { passive: false });
+    shapeInfoElement.addEventListener('touchstart', toggleAutoChange);
+    
     // Add keyboard navigation for resume sections
     window.addEventListener('keydown', handleKeyNavigation);
+    
+    // Update particle size for mobile
+    if (window.innerWidth <= 768) {
+        // Smaller screens need larger particles for visibility
+        particleMaterial.size = 0.03;
+        // Adjust camera for better mobile view
+        camera.position.z = 5;
+    }
     
     updateShapeInfo();
     
@@ -132,5 +144,29 @@ function init() {
     animate();
 }
 
+// Detect if device is mobile
+function isMobileDevice() {
+    return (window.innerWidth <= 768) || 
+           (typeof window.orientation !== 'undefined') ||
+           (navigator.userAgent.indexOf('Mobile') !== -1);
+}
+
+// Optimize rendering for mobile devices
+function optimizeForMobile() {
+    if (isMobileDevice()) {
+        // Reduce particle count for better performance on mobile
+        const mobileParticleCount = Math.min(particleCount, 10000);
+        
+        // Update renderer settings for mobile
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        
+        // Use simpler materials on mobile
+        particleMaterial.size = 0.03;
+    }
+}
+
 // Initialize everything when the window loads
-window.addEventListener('load', init);
+window.addEventListener('load', () => {
+    init();
+    optimizeForMobile();
+});

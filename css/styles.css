@@ -39,6 +39,9 @@ canvas {
     border: 1px solid #334;
     white-space: nowrap;
     z-index: 10; /* Ensure info is above canvas */
+    max-width: 90vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 /* Contact Card Styling */
 #contact-card {
@@ -83,6 +86,7 @@ canvas {
     left: 50%;
     transform: translateX(-50%);
     width: 600px;
+    max-width: 90%;
     max-height: 80vh;
     overflow-y: auto;
     background-color: rgba(10, 10, 30, 0.85);
@@ -95,4 +99,61 @@ canvas {
     border: 1px solid #445;
     backdrop-filter: blur(5px);
     box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+/* Media queries for responsive design */
+@media screen and (max-width: 768px) {
+    #resume-overlay {
+        top: 70px;
+        padding: 15px;
+        font-size: 16px;
+        width: 85%;
+    }
+    
+    #resume-overlay h2 {
+        font-size: 20px;
+        margin-top: 0;
+        padding-bottom: 8px;
+    }
+    
+    #contact-card {
+        top: 5px;
+        left: 5px;
+        padding: 6px 10px;
+    }
+    
+    #contact-card .name {
+        font-size: 15px;
+    }
+    
+    #contact-card .social-icons {
+        gap: 10px;
+    }
+}
+
+/* For very small screens like older iPhones */
+@media screen and (max-width: 375px) {
+    #resume-overlay {
+        top: 60px;
+        padding: 10px;
+        font-size: 14px;
+    }
+    
+    #resume-overlay h2 {
+        font-size: 18px;
+    }
+    
+    #contact-card .name {
+        font-size: 14px;
+    }
+    
+    #contact-card .social-icons svg {
+        width: 18px;
+        height: 18px;
+    }
+    
+    #shape-info {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
 }
