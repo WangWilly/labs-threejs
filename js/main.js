@@ -1,0 +1,136 @@
+// --- Global Variables ---
+let scene, camera, renderer, controls;
+let particles, particlesGeometry;
+let stars, starsGeometry;
+let targetPositions = {};
+let currentShapeIndex = 0;
+let isMorphing = false;
+let morphProgress = 0;
+const morphDuration = 2.0; // seconds
+const particleCount = 15000;
+const shapeInfoElement = document.getElementById('shape-info');
+let currentColorScheme = 2; // Set to color-2 scheme
+const clock = new THREE.Clock();
+
+// Auto-change and mouse following variables
+let autoChangeInterval = 15; // seconds between automatic shape changes
+let lastAutoChangeTime = 0; // track when we last auto-changed
+let mousePosition = new THREE.Vector2(0, 0); // to track mouse position
+let targetRotation = new THREE.Euler(0, 0, 0); // target rotation for shape
+let currentRotation = new THREE.Euler(0, 0, 0); // current rotation
+let rotationSpeed = 2.0; // how quickly the shape rotates to follow mouse
+let autoChangeEnabled = true; // toggle for auto-changing
+
+// --- Initialization ---
+function init() {
+    // Scene
+    scene = new THREE.Scene();
+
+    // Camera
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 4;
+
+    // Renderer
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    // Orbit Controls
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; // Enable smooth damping (inertia)
+    controls.dampingFactor = 0.05; // Adjust damping intensity
+    
+    // Creating text overlay for resume content
+    createResumeOverlay();
+    
+    // Particles Geometry
+    particlesGeometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    const startPositions = new Float32Array(particleCount * 3); // For morphing
+    const randomFactors = new Float32Array(particleCount); // For galaxy/wave variation
+
+    for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 5;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 5;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 5;
+        randomFactors[i] = Math.random();
+    }
+
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    particlesGeometry.setAttribute('startPosition', new THREE.BufferAttribute(startPositions, 3));
+    particlesGeometry.setAttribute('randomFactor', new THREE.BufferAttribute(randomFactors, 1));
+
+    // Particles Material
+    const particleMaterial = new THREE.PointsMaterial({
+        size: 0.02,
+        vertexColors: true,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending
+    });
+
+    // Particles Object
+    particles = new THREE.Points(particlesGeometry, particleMaterial);
+    scene.add(particles);
+
+    // Background Stars
+    starsGeometry = new THREE.BufferGeometry();
+    const starPositions = [];
+    const starColors = [];
+    const starCount = 5000;
+    const starColor = new THREE.Color(0.8, 0.8, 0.9);
+
+    for (let i = 0; i < starCount; i++) {
+        const x = THREE.MathUtils.randFloatSpread(200);
+        const y = THREE.MathUtils.randFloatSpread(200);
+        const z = THREE.MathUtils.randFloatSpread(200);
+        const d = Math.sqrt(x*x + y*y + z*z);
+         if (d < 50) {
+            const scale = 50 / d;
+            starPositions.push(x*scale, y*scale, z*scale);
+         } else {
+            starPositions.push(x, y, z);
+         }
+        starColors.push(starColor.r, starColor.g, starColor.b);
+    }
+    starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+    starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
+    const starsMaterial = new THREE.PointsMaterial({
+        size: 0.1,
+        vertexColors: true,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: 0.6
+     });
+    stars = new THREE.Points(starsGeometry, starsMaterial);
+    scene.add(stars);
+
+    // Pre-calculate all target positions
+    generateShapePositions();
+    
+    // Set initial shape to Education
+    currentShapeIndex = 0;
+    setShape(currentShapeIndex, true);
+    applyColorScheme(currentColorScheme);
+    updateResumeContent(currentShapeIndex);
+    
+    // Event Listeners
+    window.addEventListener('resize', onWindowResize, false);
+    window.addEventListener('mousemove', onMouseMove, false);
+    shapeInfoElement.addEventListener('click', toggleAutoChange);
+    
+    // Add keyboard navigation for resume sections
+    window.addEventListener('keydown', handleKeyNavigation);
+    
+    updateShapeInfo();
+    
+    // Start animation loop
+    animate();
+}
+
+// Initialize everything when the window loads
+window.addEventListener('load', init);
