@@ -7,23 +7,102 @@ function createResumeOverlay() {
     document.body.appendChild(overlay);
     updateResumeContent(currentShapeIndex);
     
-    // Add touch events for mobile
-    overlay.addEventListener('touchstart', handleTouchStart, false);
-    overlay.addEventListener('touchmove', handleTouchMove, false);
+    // Add touch events with improved handling for scrolling vs swiping
+    overlay.addEventListener('touchstart', handleOverlayTouchStart, { passive: true });
+    overlay.addEventListener('touchmove', handleOverlayTouchMove, { passive: false });
+    overlay.addEventListener('touchend', handleOverlayTouchEnd, { passive: true });
 }
 
-// Track touch gestures
+// Variables for tracking touches
 let touchStartX = 0;
 let touchStartY = 0;
+let isScrolling = false;
+let touchStartTime = 0;
 
-// Handle touch start event
+// Handle touch start specifically for the overlay
+function handleOverlayTouchStart(event) {
+    touchStartX = event.touches[0].clientX;
+    touchStartY = event.touches[0].clientY;
+    touchStartTime = Date.now();
+    isScrolling = false;
+}
+
+// Handle touch move specifically for the overlay
+function handleOverlayTouchMove(event) {
+    if (isMorphing) return;
+    
+    // Don't do anything if we've already determined this is a scroll action
+    if (isScrolling) return;
+    
+    if (!touchStartX || !touchStartY) return;
+    
+    const touchCurrentX = event.touches[0].clientX;
+    const touchCurrentY = event.touches[0].clientY;
+    
+    const diffX = touchStartX - touchCurrentX;
+    const diffY = touchStartY - touchCurrentY;
+    
+    // If vertical movement is greater than horizontal, this is likely a scroll
+    if (Math.abs(diffY) > Math.abs(diffX)) {
+        isScrolling = true;
+        return;
+    }
+    
+    // If horizontal swipe is significant and exceeds threshold, handle as navigation
+    if (Math.abs(diffX) > 50) {
+        const overlay = document.getElementById('resume-overlay');
+        
+        // Only process swipe if the overlay doesn't need scrolling or we're at the top/bottom
+        if (overlay.scrollHeight <= overlay.clientHeight || 
+            (overlay.scrollTop === 0 && diffY < 0) || 
+            (overlay.scrollTop + overlay.clientHeight >= overlay.scrollHeight - 5 && diffY > 0)) {
+            
+            lastAutoChangeTime = clock.getElapsedTime();
+            
+            if (diffX > 0) {
+                // Swipe left - next section
+                goToSection((currentShapeIndex + 1) % shapes.length);
+            } else {
+                // Swipe right - previous section
+                goToSection((currentShapeIndex - 1 + shapes.length) % shapes.length);
+            }
+            
+            // Reset touch tracking
+            touchStartX = 0;
+            touchStartY = 0;
+            
+            // Prevent default to avoid any unexpected behavior
+            event.preventDefault();
+        }
+    }
+}
+
+// Handle touch end for the overlay
+function handleOverlayTouchEnd(event) {
+    // Reset flags and coordinates
+    touchStartX = 0;
+    touchStartY = 0;
+    isScrolling = false;
+}
+
+// Add global touch handlers for page-level navigation
+document.addEventListener('touchstart', handleTouchStart, { passive: true });
+document.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+// Handle touch start event for the whole page
 function handleTouchStart(event) {
+    // Skip if touch is inside the resume overlay (handled by its own events)
+    if (event.target.closest('#resume-overlay')) return;
+    
     touchStartX = event.touches[0].clientX;
     touchStartY = event.touches[0].clientY;
 }
 
-// Handle touch move event for swipe navigation
+// Handle touch move event for swipe navigation on the whole page
 function handleTouchMove(event) {
+    // Skip if touch is inside the resume overlay (handled by its own events)
+    if (event.target.closest('#resume-overlay')) return;
+    
     if (!touchStartX || !touchStartY || isMorphing) {
         return;
     }
@@ -48,6 +127,9 @@ function handleTouchMove(event) {
         // Reset touch start position
         touchStartX = 0;
         touchStartY = 0;
+        
+        // Prevent default to stop page scrolling
+        event.preventDefault();
     }
 }
 

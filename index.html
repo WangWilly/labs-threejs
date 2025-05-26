@@ -7,6 +7,17 @@
     <meta name="mobile-web-app-capable" content="yes">
     <title>Interactive Morphing Resume - Yuli W.</title>
     <link rel="stylesheet" href="css/styles.css">
+    <script>
+        // Fix iOS overflow scrolling issues
+        document.addEventListener('touchmove', function(event) {
+            const overlay = document.getElementById('resume-overlay');
+            if (overlay && event.target.closest('#resume-overlay')) {
+                if (overlay.scrollHeight > overlay.clientHeight) {
+                    event.stopPropagation();
+                }
+            }
+        }, { passive: true });
+    </script>
 </head>
 <body>
     <div id="shape-info">Shape: Sphere (Auto-changing)</div>

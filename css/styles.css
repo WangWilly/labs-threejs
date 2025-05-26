@@ -89,6 +89,9 @@ canvas {
     max-width: 90%;
     max-height: 80vh;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* Enable momentum scrolling on iOS */
+    overscroll-behavior: contain; /* Prevent scroll chaining */
+    touch-action: pan-y; /* Explicitly allow vertical touch scrolling */
     background-color: rgba(10, 10, 30, 0.85);
     padding: 25px;
     border-radius: 10px;
@@ -148,9 +151,10 @@ canvas {
 @media screen and (max-width: 768px) {
     #resume-overlay {
         top: 70px;
-        padding: 15px;
+        padding: 15px 15px 30px; /* Add more padding at bottom for easier scrolling */
         font-size: 16px;
         width: 85%;
+        max-height: 70vh; /* Slightly smaller to ensure it's not too tall on small screens */
     }
     
     #resume-overlay h2 {
