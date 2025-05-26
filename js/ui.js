@@ -73,9 +73,17 @@ function updateResumeContent(sectionIndex) {
     });
     html += '</div>';
     
-    // Add navigation hint with mobile-friendly instructions
-    html += `<div style="margin-top:20px;font-size:12px;color:#aaa;text-align:center">
-            Use arrow keys or swipe to navigate • Section ${sectionIndex + 1} of 4</div>`;
+    // Add navigation hint with mobile-friendly instructions including gyroscope
+    const isMobile = window.innerWidth <= 768 || typeof window.orientation !== 'undefined';
+    
+    if (isMobile) {
+        html += `<div style="margin-top:20px;font-size:12px;color:#aaa;text-align:center">
+                Swipe to navigate • Tilt phone to rotate • Shake for next section<br>
+                Section ${sectionIndex + 1} of ${shapes.length}</div>`;
+    } else {
+        html += `<div style="margin-top:20px;font-size:12px;color:#aaa;text-align:center">
+                Use arrow keys or swipe to navigate • Section ${sectionIndex + 1} of ${shapes.length}</div>`;
+    }
     
     overlay.innerHTML = html;
 }
@@ -89,10 +97,20 @@ function toggleAutoChange() {
 // Update shape info text based on current state
 function updateShapeInfo() {
     const currentShape = shapes[currentShapeIndex];
-    if (autoChangeEnabled) {
-        shapeInfoElement.textContent = `${resumeSections[currentShapeIndex].title} (Auto-changing)`;
+    const isMobile = window.innerWidth <= 768 || typeof window.orientation !== 'undefined';
+    
+    if (isMobile) {
+        if (autoChangeEnabled) {
+            shapeInfoElement.textContent = `${resumeSections[currentShapeIndex].title} (Auto)`;
+        } else {
+            shapeInfoElement.textContent = `${resumeSections[currentShapeIndex].title}`;
+        }
     } else {
-        shapeInfoElement.textContent = `${resumeSections[currentShapeIndex].title} (Tap to toggle)`;
+        if (autoChangeEnabled) {
+            shapeInfoElement.textContent = `${resumeSections[currentShapeIndex].title} (Auto-changing)`;
+        } else {
+            shapeInfoElement.textContent = `${resumeSections[currentShapeIndex].title} (Tap to toggle)`;
+        }
     }
 }
 

@@ -21,6 +21,15 @@ let currentRotation = new THREE.Euler(0, 0, 0); // current rotation
 let rotationSpeed = 2.0; // how quickly the shape rotates to follow mouse
 let autoChangeEnabled = true; // toggle for auto-changing
 
+// Device motion and orientation variables
+let gyroscopeEnabled = false;
+let deviceMotionEnabled = false;
+let shakeThreshold = 15; // Threshold for shake detection
+let lastAcceleration = { x: 0, y: 0, z: 0 };
+let shakeTimeout = null;
+let lastShakeTime = 0;
+let minTimeBetweenShakes = 1000; // Minimum time between shake events (ms)
+
 // --- Initialization ---
 function init() {
     // Scene
@@ -130,6 +139,9 @@ function init() {
     // Add keyboard navigation for resume sections
     window.addEventListener('keydown', handleKeyNavigation);
     
+    // Add gyroscope and motion detection for mobile
+    setupDeviceOrientation();
+    
     // Update particle size for mobile
     if (window.innerWidth <= 768) {
         // Smaller screens need larger particles for visibility
@@ -142,6 +154,186 @@ function init() {
     
     // Start animation loop
     animate();
+}
+
+// Request permission for device motion/orientation (especially for iOS)
+function setupDeviceOrientation() {
+    // Check if device orientation is available
+    if (window.DeviceOrientationEvent) {
+        // For iOS 13+ devices that require permission
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            // Create a button to request permission
+            const permissionBtn = document.createElement('button');
+            permissionBtn.id = 'motion-permission';
+            permissionBtn.textContent = 'Enable Motion Control';
+            permissionBtn.style.position = 'fixed';
+            permissionBtn.style.bottom = '20px';
+            permissionBtn.style.left = '50%';
+            permissionBtn.style.transform = 'translateX(-50%)';
+            permissionBtn.style.padding = '10px 15px';
+            permissionBtn.style.backgroundColor = '#8a2be2';
+            permissionBtn.style.color = 'white';
+            permissionBtn.style.border = 'none';
+            permissionBtn.style.borderRadius = '5px';
+            permissionBtn.style.zIndex = '1000';
+            
+            permissionBtn.addEventListener('click', requestMotionPermission);
+            document.body.appendChild(permissionBtn);
+        } else {
+            // For non-iOS devices or older iOS that don't require permission
+            window.addEventListener('deviceorientation', handleDeviceOrientation);
+            gyroscopeEnabled = true;
+        }
+    }
+    
+    // Setup device motion for shake detection
+    if (window.DeviceMotionEvent) {
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            // Permission will be requested with the orientation permission
+        } else {
+            window.addEventListener('devicemotion', handleDeviceMotion);
+            deviceMotionEnabled = true;
+        }
+    }
+}
+
+// Request permission for iOS devices
+function requestMotionPermission() {
+    DeviceOrientationEvent.requestPermission()
+        .then(permissionState => {
+            if (permissionState === 'granted') {
+                // Hide the button
+                document.getElementById('motion-permission').style.display = 'none';
+                
+                // Add the event listeners
+                window.addEventListener('deviceorientation', handleDeviceOrientation);
+                gyroscopeEnabled = true;
+                
+                // Also add motion detection for shake
+                if (window.DeviceMotionEvent) {
+                    DeviceMotionEvent.requestPermission()
+                        .then(motionState => {
+                            if (motionState === 'granted') {
+                                window.addEventListener('devicemotion', handleDeviceMotion);
+                                deviceMotionEnabled = true;
+                                
+                                // Show a brief instruction toast
+                                showToast('Motion control active! Tilt to move, shake for next section');
+                            }
+                        })
+                        .catch(console.error);
+                }
+                
+                // Show a brief instruction toast
+                showToast('Gyroscope active! Tilt your phone to move the shape');
+            }
+        })
+        .catch(console.error);
+}
+
+// Handle device orientation data for gyroscope control
+function handleDeviceOrientation(event) {
+    // Only use gyroscope when not morphing
+    if (isMorphing) return;
+    
+    // Get the orientation data
+    const beta = event.beta;  // X-axis rotation (-180 to 180)
+    const gamma = event.gamma; // Y-axis rotation (-90 to 90)
+    
+    // Normalize to the range we need
+    if (beta !== null && gamma !== null) {
+        // Map the rotation to our target rotation angles
+        // Limit the rotation to reasonable angles
+        const maxAngle = Math.PI * 0.3;
+        
+        // Use gamma (left-right tilt) for Y rotation
+        targetRotation.y = THREE.MathUtils.mapLinear(
+            THREE.MathUtils.clamp(gamma, -45, 45), 
+            -45, 45, 
+            maxAngle, -maxAngle
+        );
+        
+        // Use beta (front-back tilt) for X rotation
+        targetRotation.x = THREE.MathUtils.mapLinear(
+            THREE.MathUtils.clamp(beta - 45, -45, 45), 
+            -45, 45, 
+            maxAngle, -maxAngle
+        );
+    }
+}
+
+// Handle device motion for shake detection
+function handleDeviceMotion(event) {
+    const acceleration = event.accelerationIncludingGravity;
+    
+    if (!acceleration) return;
+    
+    // Calculate acceleration change
+    const deltaX = Math.abs(acceleration.x - lastAcceleration.x);
+    const deltaY = Math.abs(acceleration.y - lastAcceleration.y);
+    const deltaZ = Math.abs(acceleration.z - lastAcceleration.z);
+    
+    // Update last acceleration
+    lastAcceleration.x = acceleration.x;
+    lastAcceleration.y = acceleration.y;
+    lastAcceleration.z = acceleration.z;
+    
+    // Calculate total change
+    const totalChange = deltaX + deltaY + deltaZ;
+    
+    // Check if shake exceeds threshold
+    if (totalChange > shakeThreshold) {
+        const now = Date.now();
+        
+        // Prevent multiple shakes in short succession
+        if (now - lastShakeTime > minTimeBetweenShakes) {
+            detectShake();
+            lastShakeTime = now;
+        }
+    }
+}
+
+// Process shake event
+function detectShake() {
+    // If already processing a shake, ignore
+    if (shakeTimeout) return;
+    
+    // Debounce the shake detection
+    shakeTimeout = setTimeout(() => {
+        // Go to next section
+        lastAutoChangeTime = clock.getElapsedTime();
+        if (!isMorphing) {
+            goToSection((currentShapeIndex + 1) % shapes.length);
+            showToast('Shake detected - Next section');
+        }
+        shakeTimeout = null;
+    }, 300);
+}
+
+// Show a temporary toast notification
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.position = 'fixed';
+    toast.style.bottom = '80px';
+    toast.style.left = '50%';
+    toast.style.transform = 'translateX(-50%)';
+    toast.style.backgroundColor = 'rgba(10, 10, 30, 0.9)';
+    toast.style.color = 'white';
+    toast.style.padding = '10px 20px';
+    toast.style.borderRadius = '5px';
+    toast.style.zIndex = '1000';
+    toast.style.transition = 'opacity 0.5s';
+    
+    document.body.appendChild(toast);
+    
+    // Fade out and remove after 3 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 500);
+    }, 3000);
 }
 
 // Detect if device is mobile
