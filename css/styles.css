@@ -181,6 +181,11 @@ canvas {
         padding: 12px 20px;
         font-size: 16px;
     }
+    
+    /* Move shape-info down to avoid contact-card overlap */
+    #shape-info {
+        top: 40px; /* Increase from 20px to avoid overlap with contact card */
+    }
 }
 
 /* For very small screens like older iPhones */
@@ -205,12 +210,42 @@ canvas {
     }
     
     #shape-info {
+        top: 45px; /* Move even further down on very small screens */
         font-size: 12px;
         padding: 6px 10px;
+        /* Make background more transparent so it's less obtrusive */
+        background-color: rgba(10, 10, 30, 0.7);
     }
     
     #motion-permission {
         width: 80%;
         padding: 10px;
+    }
+}
+
+/* Specific fix for extra small screens or in landscape orientation */
+@media screen and (max-height: 500px), (max-width: 350px) {
+    #contact-card {
+        /* Make contact card more compact */
+        padding: 4px 8px;
+    }
+    
+    #contact-card .name {
+        font-size: 13px;
+    }
+    
+    #contact-card .social-icons svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    #shape-info {
+        top: 38px;
+    }
+    
+    /* Also adjust resume-overlay position */
+    #resume-overlay {
+        top: 80px;
+        max-height: 65vh;
     }
 }
