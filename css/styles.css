@@ -32,7 +32,7 @@ canvas {
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: rgba(10, 10, 30, 0.8);
+    background-color: rgba(10, 10, 30, 0.9);
     padding: 8px 15px;
     border-radius: 5px;
     font-size: 14px;
@@ -42,22 +42,24 @@ canvas {
     max-width: 90vw;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: #00ffff;
+    text-shadow: 0 0 5px currentColor;
 }
 /* Contact Card Styling */
 #contact-card {
     position: fixed;
     top: 10px;
     left: 10px;
-    background-color: rgba(10, 10, 30, 0.85);
+    background-color: rgba(10, 10, 30, 0.9); /* Slightly more opaque for contrast */
     border-radius: 10px;
     padding: 10px 15px;
     display: flex;
     align-items: center;
     gap: 15px;
-    border: 1px solid #445;
+    border: 1px solid rgba(255, 0, 255, 0.4); /* Magenta border */
     backdrop-filter: blur(5px);
     z-index: 1000;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); /* Magenta glow */
 }
 #contact-card .name {
     font-size: 18px;
@@ -70,15 +72,16 @@ canvas {
     gap: 12px;
 }
 #contact-card .social-icons a {
-    color: #8a2be2;
+    color: #00ffff; /* Cyan links */
     transition: color 0.3s, transform 0.3s;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 #contact-card .social-icons a:hover {
-    color: #4169e1;
+    color: #ff00ff; /* Magenta on hover */
     transform: scale(1.2);
+    text-shadow: 0 0 10px currentColor; /* Add glow effect */
 }
 #resume-overlay {
     position: absolute;
@@ -92,16 +95,16 @@ canvas {
     -webkit-overflow-scrolling: touch; /* Enable momentum scrolling on iOS */
     overscroll-behavior: contain; /* Prevent scroll chaining */
     touch-action: pan-y; /* Explicitly allow vertical touch scrolling */
-    background-color: rgba(10, 10, 30, 0.85);
+    background-color: rgba(10, 10, 30, 0.9);
     padding: 25px;
     border-radius: 10px;
     color: white;
     font-family: 'Courier New', monospace;
     font-size: 18px;
     z-index: 100;
-    border: 1px solid #445;
+    border: 1px solid rgba(0, 255, 255, 0.5);
     backdrop-filter: blur(5px);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.15);
 }
 
 /* Motion permission button */
@@ -111,18 +114,19 @@ canvas {
     left: 50%;
     transform: translateX(-50%);
     padding: 10px 15px;
-    background-color: #8a2be2;
+    background-color: #ff00ff; /* Magenta button */
     color: white;
     border: none;
     border-radius: 5px;
     z-index: 1000;
     font-family: 'Courier New', monospace;
     cursor: pointer;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
 }
 
 #motion-permission:hover {
-    background-color: #7821b8;
+    background-color: #00ffff; /* Cyan on hover */
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.4);
 }
 
 /* Add info badge for gyro hint */
@@ -248,4 +252,65 @@ canvas {
         top: 80px;
         max-height: 65vh;
     }
+}
+
+/* Add a subtle glass-like effect with cyberpunk styling */
+#shape-info, #contact-card, #resume-overlay, #motion-permission {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 255, 255, 0.3); /* Cyan border for techno feel */
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.1); /* Subtle glow */
+}
+
+#contact-card {
+    /* ...existing code... */
+    background-color: rgba(10, 10, 30, 0.9); /* Slightly more opaque for contrast */
+    border: 1px solid rgba(255, 0, 255, 0.4); /* Magenta border */
+    box-shadow: 0 0 15px rgba(255, 0, 255, 0.2); /* Magenta glow */
+}
+
+#contact-card .social-icons a {
+    color: #00ffff; /* Cyan links */
+    /* ...existing code... */
+}
+#contact-card .social-icons a:hover {
+    color: #ff00ff; /* Magenta on hover */
+    /* ...existing code... */
+    text-shadow: 0 0 10px currentColor; /* Add glow effect */
+}
+
+#resume-overlay {
+    /* ...existing code... */
+    background-color: rgba(10, 10, 30, 0.9);
+    border: 1px solid rgba(0, 255, 255, 0.5);
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.15);
+}
+
+#motion-permission {
+    /* ...existing code... */
+    background-color: #ff00ff; /* Magenta button */
+    box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+}
+
+#motion-permission:hover {
+    background-color: #00ffff; /* Cyan on hover */
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.4);
+}
+
+/* Add cyberpunk text effects */
+#shape-info {
+    /* ...existing code... */
+    background-color: rgba(10, 10, 30, 0.9);
+    color: #00ffff;
+    text-shadow: 0 0 5px currentColor;
+}
+
+/* Add subtle animation to UI elements */
+@keyframes cyberpunkGlow {
+    0%, 100% { box-shadow: 0 0 20px rgba(0, 255, 255, 0.1); }
+    50% { box-shadow: 0 0 30px rgba(255, 0, 255, 0.2); }
+}
+
+#contact-card, #resume-overlay {
+    animation: cyberpunkGlow 4s ease-in-out infinite;
 }

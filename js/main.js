@@ -11,6 +11,7 @@ const particleCount = 15000;
 const shapeInfoElement = document.getElementById('shape-info');
 let currentColorScheme = 2; // Set to color-2 scheme
 const clock = new THREE.Clock();
+let lavaBackground; // Lava lamp background
 
 // Auto-change and mouse following variables
 let autoChangeInterval = 15; // seconds between automatic shape changes
@@ -37,12 +38,16 @@ function init() {
 
     // Camera
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 4;
+    camera.position.z = 2.8;
 
     // Renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        alpha: true // Enable alpha for transparent background
+    });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.autoClear = false; // Important for rendering background first
     document.body.appendChild(renderer.domElement);
 
     // Orbit Controls
@@ -86,13 +91,23 @@ function init() {
     particles = new THREE.Points(particlesGeometry, particleMaterial);
     scene.add(particles);
 
-    // Background Stars
+    // Initialize techno lava lamp background with darker, eye-friendly colors
+    lavaBackground = new LavaLampBackground({
+        colorA: new THREE.Color(0x050510), // Much darker background
+        colorB: new THREE.Color(0x003333), // Darker teal
+        colorC: new THREE.Color(0x330033), // Darker purple
+        speed: 0.5, // Slower for more relaxing effect
+        blobScale: isMobileDevice() ? 1.2 : 1.5, // Smaller blobs
+        glitchIntensity: 0.03 // Much less glitch
+    });
+    lavaBackground.init(renderer);
+
+    // Background Stars - Make them more cyberpunk
     starsGeometry = new THREE.BufferGeometry();
     const starPositions = [];
     const starColors = [];
-    const starCount = 5000;
-    const starColor = new THREE.Color(0.8, 0.8, 0.9);
-
+    const starCount = 1500; // Reduced for performance
+    
     for (let i = 0; i < starCount; i++) {
         const x = THREE.MathUtils.randFloatSpread(200);
         const y = THREE.MathUtils.randFloatSpread(200);
@@ -104,16 +119,26 @@ function init() {
          } else {
             starPositions.push(x, y, z);
          }
-        starColors.push(starColor.r, starColor.g, starColor.b);
+        
+        // Cyberpunk star colors
+        const colorChoice = Math.random();
+        if (colorChoice < 0.4) {
+            starColors.push(0.0, 1.0, 1.0); // Cyan
+        } else if (colorChoice < 0.7) {
+            starColors.push(1.0, 0.0, 1.0); // Magenta
+        } else {
+            starColors.push(0.9, 0.9, 1.0); // White-blue
+        }
     }
     starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
     starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
     const starsMaterial = new THREE.PointsMaterial({
-        size: 0.1,
+        size: 0.15, // Slightly larger for more visibility
         vertexColors: true,
         sizeAttenuation: true,
         transparent: true,
-        opacity: 0.6
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending // Add glow effect
      });
     stars = new THREE.Points(starsGeometry, starsMaterial);
     scene.add(stars);
@@ -147,7 +172,7 @@ function init() {
         // Smaller screens need larger particles for visibility
         particleMaterial.size = 0.03;
         // Adjust camera for better mobile view
-        camera.position.z = 5;
+        camera.position.z = 3;
     }
     
     updateShapeInfo();
@@ -354,6 +379,64 @@ function optimizeForMobile() {
         
         // Use simpler materials on mobile
         particleMaterial.size = 0.03;
+    }
+}
+
+// --- Render Loop ---
+function animate() {
+    requestAnimationFrame(animate);
+
+    const deltaTime = clock.getDelta();
+    const elapsedTime = clock.getElapsedTime();
+
+    // First, render the techno lava lamp background
+    if (lavaBackground) {
+        renderer.clear();
+        lavaBackground.update();
+    }
+    
+    // Then render the scene with particles
+    renderer.clearDepth();
+
+    // Check for auto shape change if enabled and not currently morphing
+    if (autoChangeEnabled && !isMorphing && 
+        (elapsedTime - lastAutoChangeTime > autoChangeInterval)) {
+        lastAutoChangeTime = elapsedTime;
+        goToSection((currentShapeIndex + 1) % shapes.length);
+    }
+
+    // Update morphing state
+    updateMorph(deltaTime);
+
+    // Smooth rotation toward mouse position
+    if (!isMorphing) { // Only rotate when not morphing to avoid visual conflicts
+        currentRotation.x += (targetRotation.x - currentRotation.x) * rotationSpeed * deltaTime;
+        currentRotation.y += (targetRotation.y - currentRotation.y) * rotationSpeed * deltaTime;
+        particles.rotation.x = currentRotation.x;
+        particles.rotation.y = currentRotation.y;
+    }
+    
+    // Update OrbitControls (handles camera rotation/zoom/pan)
+    controls.update(); // Must be called if controls.enableDamping is true
+
+    // Enhanced star rotation for techno effect
+    if (stars) {
+        stars.rotation.y += deltaTime * 0.01; // Slightly faster
+        stars.rotation.z += deltaTime * 0.005; // Add Z rotation
+    }
+
+    renderer.render(scene, camera);
+}
+
+// Window resize handler
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    
+    // Update lava background on resize
+    if (lavaBackground) {
+        lavaBackground.onResize();
     }
 }
 
