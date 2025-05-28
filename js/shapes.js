@@ -271,6 +271,9 @@ function setShape(index, updateText = false) {
     }
     positions.needsUpdate = true; // Tell Three.js the buffer changed
 
+    // Store these new positions as the base for breathing
+    storeBasePositions();
+
     // Update info text only if requested AND not currently morphing
     if (updateText && !isMorphing) {
         updateShapeInfo();

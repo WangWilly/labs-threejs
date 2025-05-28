@@ -159,6 +159,7 @@ class MotionDetector {
         if (this.shakeTimeout) return;
         
         // Debounce the shake detection
+        // The use of an arrow function for setTimeout is CSP-compliant, avoiding string evaluation.
         this.shakeTimeout = setTimeout(() => {
             this.onShake();
             this.shakeTimeout = null;

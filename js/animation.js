@@ -36,6 +36,79 @@ function animate() {
     renderer.render(scene, camera);
 }
 
+// Update breathing animation
+function updateBreathing(elapsedTime) {
+    if (!particlesGeometry || !basePositions) return;
+
+    const positions = particlesGeometry.attributes.position.array;
+    
+    // Calculate breathing factor using sine wave
+    const breathingFactor = 1.0 + Math.sin(elapsedTime * breathingSpeed * Math.PI * 2) * breathingAmplitude;
+    
+    // Get the current shape's center for breathing from center
+    const currentShapeName = shapes[currentShapeIndex];
+    const shapeCenter = getShapeCenter(currentShapeName);
+    
+    // Apply breathing effect to each particle
+    for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        
+        // Get base position (current position without breathing)
+        const baseX = basePositions[i3];
+        const baseY = basePositions[i3 + 1];
+        const baseZ = basePositions[i3 + 2];
+        
+        // Calculate vector from center to particle
+        const deltaX = baseX - shapeCenter.x;
+        const deltaY = baseY - shapeCenter.y;
+        const deltaZ = baseZ - shapeCenter.z;
+        
+        // Apply breathing scaling from center
+        positions[i3] = shapeCenter.x + deltaX * breathingFactor;
+        positions[i3 + 1] = shapeCenter.y + deltaY * breathingFactor;
+        positions[i3 + 2] = shapeCenter.z + deltaZ * breathingFactor;
+    }
+    
+    particlesGeometry.attributes.position.needsUpdate = true;
+}
+
+// Get center point of current shape for breathing animation
+function getShapeCenter(shapeName) {
+    // Return approximate centers for each shape type
+    // These might need adjustment based on your shape definitions
+    switch(shapeName) {
+        case 'Education':
+            return { x: 0, y: -0.75, z: 0 }; // Adjusted center for two spheres
+        case 'Skills':
+            return { x: 0, y: -0.5, z: 0 }; // Center of spiral
+        case 'Projects':
+            return { x: 0, y: 0, z: 0.5 }; // Center of project nodes
+        case 'Experience':
+            return { x: 0, y: 0, z: 0 }; // Center of timeline
+        default:
+            // Fallback: calculate center from bounding box if available
+            if (particlesGeometry && particlesGeometry.boundingBox) {
+                const center = new THREE.Vector3();
+                particlesGeometry.boundingBox.getCenter(center);
+                return center;
+            }
+            return { x: 0, y: 0, z: 0 };
+    }
+}
+
+// Store base positions for breathing animation
+function storeBasePositions() {
+    if (!particlesGeometry || !basePositions) return;
+    const positions = particlesGeometry.attributes.position.array;
+    // Ensure basePositions is allocated
+    if (basePositions.length !== positions.length) {
+        basePositions = new Float32Array(positions.length);
+    }
+    for (let i = 0; i < positions.length; i++) {
+        basePositions[i] = positions[i];
+    }
+}
+
 // Update morphing animation
 function updateMorph(deltaTime) {
     if (!isMorphing) return;
@@ -104,6 +177,8 @@ function updateMorph(deltaTime) {
         try {
             // Snap precisely to the final target position
             setShape(currentShapeIndex, false); // updateText = false
+            // Store base positions for breathing after morph completes and shape is set
+            storeBasePositions(); 
         } catch (e) {
             console.error("Error during setShape in morph completion:", e);
         }

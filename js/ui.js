@@ -201,12 +201,29 @@ function goToSection(index) {
     if (isMorphing || index === currentShapeIndex) return;
     
     // Store current position for morphing
-    const currentPositions = particlesGeometry.attributes.position.array;
+    // If breathing is enabled, use basePositions for a stable start to the morph.
+    // Otherwise, use the current (potentially already breathed) positions.
+    const currentPosArray = (breathingEnabled && basePositions) ? basePositions : particlesGeometry.attributes.position.array;
+    
     const startPositionsAttribute = particlesGeometry.attributes.startPosition;
-    for(let i=0; i < currentPositions.length; i++) {
-        startPositionsAttribute.array[i] = currentPositions[i];
+    // Ensure currentPosArray and startPositionsAttribute.array have the same length
+    if (currentPosArray.length === startPositionsAttribute.array.length) {
+        for(let i=0; i < currentPosArray.length; i++) {
+            startPositionsAttribute.array[i] = currentPosArray[i];
+        }
+        startPositionsAttribute.needsUpdate = true;
+    } else {
+        console.error("goToSection: Mismatch in position array lengths. Cannot set start positions for morphing.");
+        // Potentially fall back to using particlesGeometry.attributes.position.array directly
+        // or handle the error appropriately. For now, we'll log and proceed cautiously.
+        const fallbackPositions = particlesGeometry.attributes.position.array;
+        if (fallbackPositions.length === startPositionsAttribute.array.length) {
+            for(let i=0; i < fallbackPositions.length; i++) {
+                startPositionsAttribute.array[i] = fallbackPositions[i];
+            }
+            startPositionsAttribute.needsUpdate = true;
+        }
     }
-    startPositionsAttribute.needsUpdate = true;
     
     // Set the target section
     isMorphing = true;
